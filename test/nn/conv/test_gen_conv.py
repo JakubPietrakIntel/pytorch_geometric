@@ -16,7 +16,7 @@ def test_gen_conv(aggr):
     adj1 = SparseTensor(row=row, col=col, sparse_sizes=(4, 4))
     adj2 = SparseTensor(row=row, col=col, value=value, sparse_sizes=(4, 4))
 
-    conv = GENConv(16, 32, aggr)
+    conv = GENConv(16, 32, aggr, edge_dim=16)
     assert conv.__repr__() == f'GENConv(16, 32, aggr={aggr})'
     out11 = conv(x1, edge_index)
     assert out11.size() == (4, 32)
