@@ -25,10 +25,10 @@ def test_rgcn_conv_equality(conf):
     edge_type = torch.tensor([0, 1, 1, 0, 0, 1, 2, 3, 3, 2, 2, 3])
 
     torch.manual_seed(12345)
-    conv1 = RGCNConv(4, 32, 4, num_bases, num_blocks)
+    conv1 = RGCNConv(4, 32, 4, num_bases, num_blocks, aggr='sum')
 
     torch.manual_seed(12345)
-    conv2 = FastRGCNConv(4, 32, 4, num_bases, num_blocks)
+    conv2 = FastRGCNConv(4, 32, 4, num_bases, num_blocks, aggr='sum')
 
     out1 = conv1(x1, edge_index, edge_type)
     out2 = conv2(x1, edge_index, edge_type)
@@ -53,7 +53,7 @@ def test_rgcn_conv(cls, conf):
     row, col = edge_index
     adj = SparseTensor(row=row, col=col, value=edge_type, sparse_sizes=(4, 4))
 
-    conv = cls(4, 32, 2, num_bases, num_blocks)
+    conv = cls(4, 32, 2, num_bases, num_blocks, aggr='sum')
     assert conv.__repr__() == f'{cls.__name__}(4, 32, num_relations=2)'
     out1 = conv(x1, edge_index, edge_type)
     assert out1.size() == (4, 32)
@@ -80,7 +80,7 @@ def test_rgcn_conv(cls, conf):
             assert torch.allclose(jit(None, adj.t()), out2)
 
     adj = adj.sparse_resize((4, 2))
-    conv = cls((4, 16), 32, 2, num_bases, num_blocks)
+    conv = cls((4, 16), 32, 2, num_bases, num_blocks, aggr='sum')
     assert conv.__repr__() == f'{cls.__name__}((4, 16), 32, num_relations=2)'
     out1 = conv((x1, x2), edge_index, edge_type)
     assert out1.size() == (2, 32)
