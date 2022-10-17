@@ -60,7 +60,7 @@ def run(args: argparse.ArgumentParser) -> None:
                     shuffle=False,
                     num_workers=args.num_workers,
                     use_cpu_worker_affinity = (True if args.cpu_affinity == 1 else False),
-                    cpu_worker_affinity_cores=list(range(args.num_workers))
+                    cpu_worker_affinity_cores= list(range(args.num_workers))
                 )
             if not hetero:
                 num_neighbors = [-1] * layers
