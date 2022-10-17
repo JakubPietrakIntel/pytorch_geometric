@@ -41,9 +41,10 @@ def plot(platform):
     data['setup'] = np.nan 
     models = ['gcn','gat','rgcn']
     datasets = ['Reddit', 'Reddit', 'ogbn-mag']
-    configs = {'init':[3,512,2,16,0],
-                'fin':[5,512,3,256,0]}
-    cfg_items = ["<br>num_neighbors=","batch_size=","num_layers=","hidden_channels","warmup="]    
+    configs = {#'init':[3,512,2,16,0],
+                'SPR':[5,512,3,256,0],
+                'ICX':[5,1024,3,128,1]}
+    cfg_items = ["<br>num_neighbors=","batch_size=","num_layers=","hidden_channels=","warmup="]    
     machines = {'SPR':"2xSPR + 256GB RAM",
                 'ICX':"2xICX + 512GB RAM",
                 'CSX':"2xCSX + 256GB RAM"}
@@ -51,7 +52,7 @@ def plot(platform):
     version = platform.split('-')[1]
     platform = platform.split('-')[0]
     
-    cfg_val= configs.get(version, None)
+    cfg_val= configs.get(platform, None)
     
     for i, model in enumerate(models):
         # str formatting
@@ -98,7 +99,7 @@ def model_mask(data, model):
     
 if __name__ == '__main__':
     
-    platform = "SPR-init"
+    platform = "ICX-fin"
     
     CWD=f'pytorch_geometric/benchmark/inference/logs/{platform}'
     LOGS=f"{CWD}/logs"
