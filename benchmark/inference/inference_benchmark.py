@@ -71,6 +71,8 @@ def run(args: argparse.ArgumentParser) -> None:
                             use_cpu_worker_affinity=use_cpu_worker_affinity,
                             cpu_worker_affinity_cores=cpu_worker_affinity_cores
                         )
+                    else:
+                        num_neighbors = [-1] * layers
                     for hidden_channels in args.num_hidden_channels:
                         print('----------------------------------------------')
                         print(f'Batch size={batch_size}, '

@@ -48,12 +48,13 @@ for model in ${MODELS[@]}; do
                     unset OMP_SCHEDULE
                     unset OMP_PROC_BIND
                     log="${log_dir}/${model}_HT${ht}ST${st}.log"
-
+                    args = "--models ${model} --num-workers ${WORKERS} --num-layers ${NUM_LAYERS} --num-hidden-channels ${NUM_HIDDEN_CHANNELS} --hetero-num-neighbors ${HETERO_NEIGHBORS} --eval-batch-sizes ${BATCH_SIZE} --warmup ${WARMUP} --use-sparse-tensor ${st}"
                     echo "OMP:" $omp
                     echo "HYPERTHREADING:" $(cat /sys/devices/system/cpu/smt/active)
                     echo "SPARSE_TENSOR:" $st
                     echo "LOG: " $log
-                    $PYTHON -u inference_benchmark.py --models $model --num-workers $WORKERS --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --eval-batch-sizes $BATCH_SIZE --warmup $WARMUP --use-sparse-tensor $st | tee $log
+                    echo "ARGS: " $args
+                    $PYTHON -u inference_benchmark.py $args | tee $log
                 done
             done    
         fi
