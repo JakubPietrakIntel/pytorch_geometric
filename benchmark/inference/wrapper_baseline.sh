@@ -53,7 +53,7 @@ for model in ${MODELS[@]}; do
                     echo "HYPERTHREADING:" $(cat /sys/devices/system/cpu/smt/active)
                     echo "SPARSE_TENSOR:" $st
                     echo "LOG: " $log
-                    $PYTHON -u inference_benchmark.py --models $model --num-workers $WORKERS --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --eval-batch-sizes $BATCH_SIZE --warmup $WARMUP --cpu_affinity $aff --use-sparse-tensor $st | tee $log
+                    $PYTHON -u inference_benchmark.py --models $model --num-workers $WORKERS --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --eval-batch-sizes $BATCH_SIZE --warmup $WARMUP --use-sparse-tensor $st | tee $log
                 done
             done    
         fi
