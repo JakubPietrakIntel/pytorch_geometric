@@ -31,7 +31,7 @@ WARMUP=1
 # for each model run benchmark in 4 configs: NO_HT+NO_AFF, NO_HT+AFF, HT+NO_AFF, HT+AFF
 for model in ${MODELS[@]}; do
     for omp in ${USE_OMP[@]}; do
-        log_dir="logs/no_omp"
+        log_dir="logs/BASELINE"
         mkdir -p "${log_dir}"
         if [ $omp = 0 ]; then
             for st in ${SPARSE_TENSOR[@]}; do
@@ -47,7 +47,7 @@ for model in ${MODELS[@]}; do
                     unset OMP_NUM_THREADS
                     unset OMP_SCHEDULE
                     unset OMP_PROC_BIND
-                    log="${log_dir}/BASELINE_${model}HT${ht}ST${st}.log"
+                    log="${log_dir}/${model}_HT${ht}ST${st}.log"
 
                     echo "OMP:" $omp
                     echo "HYPERTHREADING:" $(cat /sys/devices/system/cpu/smt/active)
