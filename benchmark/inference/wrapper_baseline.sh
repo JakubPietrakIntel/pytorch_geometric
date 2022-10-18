@@ -28,6 +28,8 @@ HETERO_NEIGHBORS=5
 WARMUP=1
 # for each model run benchmark in 4 configs: NO_HT+NO_AFF, NO_HT+AFF, HT+NO_AFF, HT+AFF
 for omp in ${USE_OMP[@]}; do
+    log_dir="logs/no_omp"
+    mkdir -p "${log_dir}"
     if [ $omp = 0 ]; then
         for st in ${SPARSE_TENSOR[@]}; do
             for ht in ${HT[@]}; do
@@ -42,7 +44,6 @@ for omp in ${USE_OMP[@]}; do
                 unset OMP_SCHEDULE
                 unset OMP_PROC_BIND
                 echo "Baseline results without OMP"
-                log_dir="logs/no_omp"
                 log="${log_dir}/BASELINE_${model}HT${ht}ST${st}.log"
                 $PYTHON -u inference_benchmark.py --models $model --num-workers $WORKERS --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --eval-batch-sizes $BATCH_SIZE --warmup $WARMUP --cpu_affinity $aff --use-sparse-tensor | tee $log
             done
