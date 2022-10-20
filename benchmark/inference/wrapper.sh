@@ -8,21 +8,22 @@ echo "TOTAL_CORES:" $TOTAL_CORES
 
 PYTHON=$(which python)
 
+declare -a HT=(1)
 # OMP config variables
-declare -a HT=(0 1)
-declare -a AFFINITY=(0 1)
 declare -a USE_OMP=(0 1)
 declare -a OMP_SCHEDULE=(0 1)
 declare -a OMP_PROC_BIND=(0 1)
+# Affinitization - use together with GOMP_CPU_AFFINITY
+declare -a AFFINITY=(0 1)
 
 # loop variables
 declare -a SPARSE_TENSOR=(0 1)
-declare -a NUM_WORKERS=(0 1 2 4 8 16)
+declare -a NUM_WORKERS=(1 2 4 8 16)
 declare -a MODELS=('gcn') # 'gat' 'rgcn')
 
 # inputs for the script
 BATCH_SIZE="512 1024 2048 4096 8192"
-NUM_HIDDEN_CHANNELS="64 128 256"
+NUM_HIDDEN_CHANNELS="128"
 NUM_LAYERS="2 3"
 HETERO_NEIGHBORS=5
 WARMUP=1

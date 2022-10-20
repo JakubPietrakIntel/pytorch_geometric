@@ -139,7 +139,7 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--hetero-num-neighbors', default=10, type=int,
         help='number of neighbors to sample per layer for hetero workloads')
-    argparser.add_argument('--num-workers', nargs='+', default=[0, 2], type=int)
+    argparser.add_argument('--num-workers', default=0, type=int)
     argparser.add_argument('--warmup', default=1, type=int)
     argparser.add_argument('--profile', action='store_true')
     argparser.add_argument('--bf16', action='store_true')
