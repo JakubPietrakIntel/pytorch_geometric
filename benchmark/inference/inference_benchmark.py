@@ -1,5 +1,8 @@
 import argparse
 import torch
+
+print(torch.__config__.parallel_info())
+
 from utils import get_dataset, get_model
 
 from torch_geometric.loader import NeighborLoader
