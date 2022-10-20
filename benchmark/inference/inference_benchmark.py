@@ -21,7 +21,7 @@ def run(args: argparse.ArgumentParser) -> None:
     # CPU affinity     
     use_cpu_worker_affinity = (True if args.cpu_affinity == 1 else False)
     if use_cpu_worker_affinity:
-        cpu_worker_affinity_cores = (args.cpu_affinity_cores if args.cpu_affinity_cores else list(range(args.num_workers)))
+        cpu_worker_affinity_cores = (args.cpu_affinity_cores if args.cpu_affinity_cores else list(range(args.num_workers[0])))
     else:
         cpu_worker_affinity_cores = None
     # Sparse tensor
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--hetero-num-neighbors', default=10, type=int,
         help='number of neighbors to sample per layer for hetero workloads')
-    argparser.add_argument('--num-workers', default=0, type=int)
+    argparser.add_argument('--num-workers', nargs='+', default=[0, 2], type=int)
     argparser.add_argument('--warmup', default=1, type=int)
     argparser.add_argument('--profile', action='store_true')
     argparser.add_argument('--bf16', action='store_true')
