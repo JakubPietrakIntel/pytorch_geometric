@@ -10,8 +10,8 @@ from torch_geometric.profile import timeit
 
 supported_sets = {
     'rgcn':'ogbn-mag',
-    'gat':'ogbn-products',
-    'gcn':'ogbn-products'
+    'gat':'Reddit',
+    'gcn':'Reddit'
 }
 
 def run(args: argparse.ArgumentParser) -> None:
@@ -119,14 +119,13 @@ def run(args: argparse.ArgumentParser) -> None:
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser('GNN inference benchmark')
     argparser.add_argument('--datasets', nargs='+',
-                           default=['ogbn-mag', 'ogbn-products',
-                                    'Reddit'], type=str)
+                           default=['Reddit'], type=str)
     argparser.add_argument(
         '--use-sparse-tensor',default=0, type=int,
         help='use torch_sparse.SparseTensor as graph storage format')
     argparser.add_argument(
         '--models', nargs='+',
-        default=['edge_cnn', 'gat', 'gcn', 'pna', 'rgat', 'rgcn'], type=str)
+        default=['gcn'], type=str)
     argparser.add_argument('--root', default='../../data', type=str,
                            help='relative path to look for the datasets')
     argparser.add_argument('--eval-batch-sizes', nargs='+',
