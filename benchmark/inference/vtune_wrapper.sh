@@ -22,11 +22,11 @@ echo -n '===== VTune Being Used =====: '; vtune --version
 source "${HOME}/anaconda3/etc/profile.d/conda.sh"
 conda activate $CONDA_ENV
 echo '===== Python Being Used ====='; python --version
-echo '===== Test Setup ====='; echo $RUN_CMD
+echo '===== Test Setup ====='; echo "${RUN_CMD}"
 
 #export ...
 cd $RUN_DIR
 VTUNE_OPTS='-finalization-mode=deferred'
-vtune -collect uarch-exploration $VTUNE_OPTS -- "${RUN_CMD}"# Run VTune
+vtune -collect uarch-exploration $VTUNE_OPTS -- "${RUN_CMD}" # Run VTune
 echo "Results can be found in ${PWD}"
 
