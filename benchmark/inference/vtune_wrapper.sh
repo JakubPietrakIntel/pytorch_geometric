@@ -26,6 +26,11 @@ echo '===== Test Setup ====='; echo "${RUN_CMD}"
 
 #export ...
 cd $RUN_DIR
+
+git reset --hard HEAD
+git pull
+chmod 777 vtune_wrapper.sh
+
 VTUNE_OPTS='-finalization-mode=deferred'
 vtune -collect uarch-exploration $VTUNE_OPTS -- "${RUN_CMD}" # Run VTune
 echo "Results can be found in ${PWD}"
