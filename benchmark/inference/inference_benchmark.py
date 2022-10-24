@@ -32,7 +32,11 @@ def run(args: argparse.ArgumentParser) -> None:
     for model_name in args.models:
         
         print(f'Evaluation bench for {model_name}:')
-        dataset_name = supported_sets.get(model_name, None)
+        if not args.datasets:
+            dataset_name = supported_sets.get(model_name, None)
+        else: 
+            dataset_name = args.datasets[0]
+        
         dataset, num_classes = get_dataset(dataset_name, args.root,
                                         use_sparse_tensor, args.bf16)
         data = dataset.to(device)
@@ -119,7 +123,7 @@ def run(args: argparse.ArgumentParser) -> None:
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser('GNN inference benchmark')
     argparser.add_argument('--datasets', nargs='+',
-                           default=['Reddit'], type=str)
+                           default=[], type=str)
     argparser.add_argument(
         '--use-sparse-tensor',default=0, type=int,
         help='use torch_sparse.SparseTensor as graph storage format')
