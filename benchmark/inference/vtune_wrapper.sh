@@ -17,13 +17,15 @@ BATCH_SIZE=1024
 
 RUN_CMD="python -u inference_benchmark.py --models ${MODEL} --datasets ${DATASET} --num-workers ${NUM_WORKERS} --num-layers ${NUM_LAYERS} --num-hidden-channels ${NUM_HIDDEN_CHANNELS} --hetero-num-neighbors ${HETERO_NEIGHBORS} --warmup ${WARMUP} --cpu_affinity ${AFF} --use-sparse-tensor ${ST} --eval-batch-sizes ${BATCH_SIZE}"
 
-#echo -n '===== VTune Being Used =====: '; vtune --version
+source /opt/intel/oneapi/setvars.sh
+echo -n '===== VTune Being Used =====: '; vtune --version
+
 source "${HOME}/anaconda3/etc/profile.d/conda.sh"
 conda activate $CONDA_ENV
 echo '===== Python Being Used ====='; python --version
 
 #export ...
 cd $RUN_DIR
-#VTUNE_OPTS='-finalization-mode=deferred'
-#vtune -collect uarch-exploration $VTUNE_OPTS -- ${RUN_CMD} # Run VTune
-#echo "Results can be found in ${PWD}”
+VTUNE_OPTS='-finalization-mode=deferred'
+vtune -collect uarch-exploration $VTUNE_OPTS -- ${RUN_CMD} # Run VTune
+echo "Results can be found in ${PWD}”
