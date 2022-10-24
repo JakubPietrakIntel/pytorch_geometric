@@ -27,6 +27,6 @@ echo '===== Test Setup ====='; echo $RUN_CMD
 #export ...
 cd $RUN_DIR
 VTUNE_OPTS='-finalization-mode=deferred'
-vtune -collect uarch-exploration $VTUNE_OPTS -- "${RUN_CMD} | tee -a VTUNE.LOG" # Run VTune
+vtune -collect uarch-exploration $VTUNE_OPTS -- "${RUN_CMD}" | tee -a VTUNE.LOG # Run VTune
 echo "Results can be found in ${PWD}"
 
