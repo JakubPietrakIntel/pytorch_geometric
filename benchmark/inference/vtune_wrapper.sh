@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 RUN_DIR="${HOME}/pyg-jpietrak/pytorch_geometric/benchmark/inference"
 CONDA_ENV="pyg-jpietrak"
@@ -24,5 +24,6 @@ conda activate $CONDA_ENV
 #export ...
 
 cd $RUN_DIR
-vtune -collect uarch-exploration -- ${RUN_CMD} # Run VTune
+VTUNE_OPTS='-finalization-mode=deferred'
+vtune -collect uarch-exploration $VTUNE_OPTS -- ${RUN_CMD} # Run VTune
 echo "Results can be found in ${PWD}”
