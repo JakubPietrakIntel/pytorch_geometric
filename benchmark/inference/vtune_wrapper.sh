@@ -28,4 +28,4 @@ echo '===== Python Being Used ====='; python --version
 cd $RUN_DIR
 VTUNE_OPTS='-finalization-mode=deferred'
 vtune -collect uarch-exploration $VTUNE_OPTS -- ${RUN_CMD} # Run VTune
-echo "Results can be found in ${PWD}”
+echo "Results can be found in ${PWD}"
