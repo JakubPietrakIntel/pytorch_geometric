@@ -99,7 +99,7 @@ for ht in ${HT[@]}; do
                         echo "LAYER_SIZE: " $NUM_LAYERS  | tee -a log
 
                     
-                        #$PYTHON -u inference_benchmark.py --models $MODEL --datasets $DATASET --num-workers $NUM_WORKERS --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --warmup $WARMUP --cpu_affinity $aff --use-sparse-tensor $st --eval-batch-sizes $BATCH_SIZE | tee -a $log
+                        #$PYTHON -u inference_benchmark.py --models $MODEL --datasets $DATASET --num-workers $NUM_WORKERS --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --warmup $WARMUP --cpu-affinity $aff --use-sparse-tensor $st --eval-batch-sizes $BATCH_SIZE | tee -a $log
                     done
                 done
             done  
