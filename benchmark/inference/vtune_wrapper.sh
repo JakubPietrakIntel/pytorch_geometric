@@ -19,10 +19,10 @@ RUN_CMD="python -u inference_benchmark.py --models ${MODEL} --datasets ${DATASET
 
 source /opt/intel/oneapi/setvars.sh
 echo -n '===== VTune Being Used =====: '; vtune --version
-
 source "${HOME}/anaconda3/etc/profile.d/conda.sh"
 conda activate $CONDA_ENV
 echo '===== Python Being Used ====='; python --version
+echo '===== Test Setup ====='; echo $RUN_CMD
 
 #export ...
 cd $RUN_DIR
