@@ -29,7 +29,7 @@ cd $RUN_DIR
 # Run VTune
 VTUNE_OPTS='-finalization-mode=deferred'
 vtune -collect performance-snapshot $VTUNE_OPTS -- ${RUN_CMD}
-#vtune -collect uarch-exploration $VTUNE_OPTS -- ${RUN_CMD} 
+vtune -collect uarch-exploration $VTUNE_OPTS -- ${RUN_CMD} 
 #vtune -collect hotspots -knob sampling-mode=hw $VTUNE_OPTS -- ${RUN_CMD}
 echo "Results can be found in ${PWD}"
 
