@@ -15,7 +15,7 @@ declare -a HT=(1)
 # OMP config variables
 declare -a USE_OMP=(0 1)
 #declare -a OMP_SCHEDULE=(0 1)
-declare -a OMP_PROC_BIND=(0 1)
+declare -a OMP_PROC_BIND=(0)
 declare -a USE_LOGICAL_CORES=(0)
 declare -a SEPARATION = (0 1)
 # CPU Affinitization
