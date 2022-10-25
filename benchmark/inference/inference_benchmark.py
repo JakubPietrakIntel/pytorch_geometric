@@ -62,8 +62,8 @@ def run(args: argparse.ArgumentParser) -> None:
                         batch_size=batch_size,
                         shuffle=False,
                         num_workers=num_workers,
-                        use_cpu_worker_affinity=use_cpu_worker_affinity,
-                        cpu_worker_affinity_cores=cpu_worker_affinity_cores
+                        use_cpu_worker_affinity=True,
+                        #cpu_worker_affinity_cores=cpu_worker_affinity_cores
                     )
                 for layers in args.num_layers:
                     if hetero:
@@ -76,7 +76,7 @@ def run(args: argparse.ArgumentParser) -> None:
                             shuffle=False,
                             num_workers=num_workers,
                             use_cpu_worker_affinity=use_cpu_worker_affinity,
-                            cpu_worker_affinity_cores=cpu_worker_affinity_cores
+                            #cpu_worker_affinity_cores=cpu_worker_affinity_cores
                         )
                     else:
                         num_neighbors = [-1] * layers
@@ -148,7 +148,7 @@ if __name__ == '__main__':
     argparser.add_argument('--profile', action='store_true')
     argparser.add_argument('--bf16', action='store_true')
     argparser.add_argument('--cpu-affinity', default=0, type=int)
-    argparser.add_argument('--cpu-affinity-cores', nargs='+', default=[], type=int)
+    #argparser.add_argument('--cpu-affinity-cores', nargs='+', default=[], type=int)
     args = argparser.parse_args()
 
     run(args)
