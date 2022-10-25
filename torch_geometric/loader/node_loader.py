@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Any, Callable, Iterator, List, Optional, Tuple, Union
 
 import torch
@@ -21,6 +22,7 @@ from torch_geometric.sampler.base import (
     SamplerOutput,
 )
 from torch_geometric.typing import InputNodes
+from contextlib import contextmanager
 
 
 class NodeLoader(torch.utils.data.DataLoader):
@@ -100,6 +102,7 @@ class NodeLoader(torch.utils.data.DataLoader):
                 self.num_workers = kwargs.get('num_workers', 0)
                 self.loader_cores = loader_cores[:] if loader_cores else []
                 self.compute_cores = compute_cores[:] if compute_cores else []
+                # TODO: better testing for compute cores
                 
                 if not self.num_workers > 0:
                     raise Exception('ERROR: affinity should be used with at least one DataLoader worker')
@@ -118,40 +121,45 @@ class NodeLoader(torch.utils.data.DataLoader):
                         if numa_info and len(numa_info[1]) > self.num_workers:
                             node1_cores = [core_id[0] for _, core_id in numa_info[1]]
                         else:
-                            cpu_cores = int(psutil.cpu_count(logical = False)/2)
+                            cpu_cores = int(psutil.cpu_count(logical = False))
                             node0_cores = list(range(cpu_cores))
                             node1_cores = list(range(cpu_cores, int(2*cpu_cores)))
                             # TODO: test if using logical cores is feasible
+                            
+                        if len(node0_cores) <= self.num_workers:
+                            raise Exception('ERROR: too many loader_cores')
+                        if len(node1_cores) <= len(self.compute_cores):
+                            raise Exception('ERROR: too many compute_cores')
+                    
+                    
                     else:
                         # single-socket machine
                         raise Exception('CPU affinitization on a single socket system is not advisavble') 
-
-                if len(node0_cores) <= self.num_workers:
-                    raise Exception('ERROR: more workers than available cores')
-
-                self.loader_cores = loader_cores or node0_cores[0:self.num_workers]
-                compute_cores = node1_cores#[cpu for cpu in node0_cores if cpu not in self.loader_cores]
                 
+                self.loader_cores = self.loader_cores if self.loader_cores else node0_cores[-self.num_workers:]
+                self.compute_cores =  self.compute_cores if self.compute_cores else node1_cores #[cpu for cpu in node0_cores if cpu not in self.loader_cores]
+   
                 try:
                     # set worker cores affinity
-                    worker_init_fn = self.worker_init_function
                     self.cpu_affinity_enabled = True
                     # set compute cores affinity
-                    psutil.Process().cpu_affinity(compute_cores)
-                    torch.set_num_threads(len(compute_cores))
+                    psutil.Process().cpu_affinity(self.compute_cores)
+                    torch.set_num_threads(len(self.compute_cores)) # len(self.compute_cores)
+                    print(torch.__config__.parallel_info())
+
+
                 except:
                     raise Exception('ERROR: cannot use compute cores affinity cpu_cores={}'
-                                    .format(compute_cores))
+                                    .format(self.compute_cores))
                     
                 print('{} DataLoader workers are assigned to cpus {}, main process will use cpus {}'
                         .format(self.num_workers, self.loader_cores, self.compute_cores))
-  
             else:
                 raise Exception("This function can only be used with CPU device")                
-                
+    
         super().__init__(input_nodes, collate_fn=self.collate_fn,
                 worker_init_fn=worker_init_fn, **kwargs)
-
+            
     def filter_fn(
         self,
         out: Union[SamplerOutput, HeteroSamplerOutput],
@@ -207,6 +215,7 @@ class NodeLoader(torch.utils.data.DataLoader):
         """
         try:
             psutil.Process().cpu_affinity([self.loader_cores[worker_id]])
+            len(psutil.Process().cpu_affinity())
         except:
             raise Exception('ERROR: cannot use affinity id={} cpu_cores={}'
                             .format(worker_id, self.loader_cores))
@@ -219,4 +228,83 @@ class NodeLoader(torch.utils.data.DataLoader):
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
+    
+    @contextmanager
+    def enable_cpu_affinity(self, loader_cores=None, compute_cores=None, verbose=True):
+        """ Helper method for enabling cpu affinity for compute threads and dataloader workers
+        Only for CPU devices
+        Uses only NUMA node 0 by default for multi-node systems
+        Parameters
+        ----------
+        loader_cores : [int] (optional)
+            List of cpu cores to which dataloader workers should affinitize to.
+            default: node0_cores[0:num_workers]
+        compute_cores : [int] (optional)
+            List of cpu cores to which compute threads should affinitize to
+            default: node0_cores[num_workers:]
+        verbose : bool (optional)
+            If True, affinity information will be printed to the console
+        Usage
+        -----
+        with dataloader.enable_cpu_affinity():
+            <training loop>
+        """
+        if self.device.type == 'cpu':
+            if not self.num_workers > 0:
+                raise Exception('ERROR: affinity should be used with at least one DL worker')
+            if loader_cores and len(loader_cores) != self.num_workers:
+                raise Exception('ERROR: cpu_affinity incorrect '
+                                'number of loader_cores={} for num_workers={}'
+                                .format(loader_cores, self.num_workers))
 
+            # False positive E0203 (access-member-before-definition) linter warning
+            worker_init_fn_old = self.worker_init_fn # pylint: disable=E0203
+            affinity_old = psutil.Process().cpu_affinity()
+            nthreads_old = get_num_threads()
+
+            compute_cores = compute_cores[:] if compute_cores else []
+            loader_cores = loader_cores[:] if loader_cores else []
+
+            def init_fn(worker_id):
+                try:
+                    psutil.Process().cpu_affinity([loader_cores[worker_id]])
+                except:
+                    raise Exception('ERROR: cannot use affinity id={} cpu={}'
+                                    .format(worker_id, loader_cores))
+
+                worker_init_fn_old(worker_id)
+
+            if not loader_cores or not compute_cores:
+                numa_info = get_numa_nodes_cores()
+                if numa_info and len(numa_info[0]) > self.num_workers:
+                    # take one thread per each node 0 core
+                    node0_cores = [cpus[0] for core_id, cpus in numa_info[0]]
+                else:
+                    node0_cores = list(range(psutil.cpu_count(logical = False)))
+
+                if len(node0_cores) <= self.num_workers:
+                    raise Exception('ERROR: more workers than available cores')
+
+                loader_cores = loader_cores or node0_cores[0:self.num_workers]
+                compute_cores = [cpu for cpu in node0_cores if cpu not in loader_cores]
+
+            try:
+                psutil.Process().cpu_affinity(compute_cores)
+                set_num_threads(len(compute_cores))
+                self.worker_init_fn = init_fn
+
+                self.cpu_affinity_enabled = True
+                if verbose:
+                    print('{} DL workers are assigned to cpus {}, main process will use cpus {}'
+                        .format(self.num_workers, loader_cores, compute_cores))
+
+                yield
+            finally:
+                # restore omp_num_threads and cpu affinity
+                psutil.Process().cpu_affinity(affinity_old)
+                set_num_threads(nthreads_old)
+                self.worker_init_fn = worker_init_fn_old
+
+                self.cpu_affinity_enabled = False
+        else:
+            yield

@@ -1,8 +1,6 @@
 import argparse
 import torch
-
 print(torch.__config__.parallel_info())
-
 from utils import get_dataset, get_model
 
 from torch_geometric.loader import NeighborLoader
@@ -20,10 +18,10 @@ def run(args: argparse.ArgumentParser) -> None:
 
     # CPU affinity     
     use_cpu_worker_affinity = (True if args.cpu_affinity == 1 else False)
-    if use_cpu_worker_affinity:
-        cpu_worker_affinity_cores = (args.cpu_affinity_cores if args.cpu_affinity_cores else list(range(args.num_workers[0])))
-    else:
-        cpu_worker_affinity_cores = None
+    # if use_cpu_worker_affinity:
+    #     cpu_worker_affinity_cores = (args.cpu_affinity_cores if args.cpu_affinity_cores else list(range(args.num_workers[0])))
+    # else:
+    #     cpu_worker_affinity_cores = None
     # Sparse tensor
     use_sparse_tensor = (True if args.use_sparse_tensor == 1 else False)
     
@@ -62,7 +60,9 @@ def run(args: argparse.ArgumentParser) -> None:
                         batch_size=batch_size,
                         shuffle=False,
                         num_workers=num_workers,
-                        use_cpu_worker_affinity=True,
+                        use_cpu_worker_affinity=use_cpu_worker_affinity,
+                        loader_cores=[22,23],
+                        compute_cores=list(range(24,48))
                         #cpu_worker_affinity_cores=cpu_worker_affinity_cores
                     )
                 for layers in args.num_layers:
@@ -101,23 +101,23 @@ def run(args: argparse.ArgumentParser) -> None:
                             metadata=data.metadata() if hetero else None)
                         model = model.to(device)
                         model.eval()
-
-                        with amp:
-                            for _ in range(args.warmup):
-                                print(f"WARMUP TIME")
-                                with timeit(): 
+                        with subgraph_loader.enable_cpu_aff_test():
+                            with amp:
+                                for _ in range(args.warmup):
+                                    print(f"WARMUP TIME")
+                                    with timeit(): 
+                                        try:
+                                            model.inference(subgraph_loader, device,
+                                                            progress_bar=True)
+                                        except RuntimeError:
+                                            pass
+                                print("INFERENCE TIME")
+                                with timeit():
                                     try:
                                         model.inference(subgraph_loader, device,
                                                         progress_bar=True)
                                     except RuntimeError:
                                         pass
-                            print("INFERENCE TIME")
-                            with timeit():
-                                try:
-                                    model.inference(subgraph_loader, device,
-                                                    progress_bar=True)
-                                except RuntimeError:
-                                    pass
 
 
 if __name__ == '__main__':
@@ -143,11 +143,11 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--hetero-num-neighbors', default=10, type=int,
         help='number of neighbors to sample per layer for hetero workloads')
-    argparser.add_argument('--num-workers', nargs='+', default=[0, 2], type=int)
+    argparser.add_argument('--num-workers', nargs='+', default=[2], type=int)
     argparser.add_argument('--warmup', default=1, type=int)
     argparser.add_argument('--profile', action='store_true')
     argparser.add_argument('--bf16', action='store_true')
-    argparser.add_argument('--cpu-affinity', default=0, type=int)
+    argparser.add_argument('--cpu-affinity', default=1, type=int)
     #argparser.add_argument('--cpu-affinity-cores', nargs='+', default=[], type=int)
     args = argparser.parse_args()
 
