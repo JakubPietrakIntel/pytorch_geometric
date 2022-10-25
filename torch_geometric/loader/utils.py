@@ -2,6 +2,8 @@ import copy
 import math
 from collections.abc import Sequence
 from typing import Dict, Optional, Tuple, Union
+import glob
+import os
 
 import numpy as np
 import torch
@@ -289,3 +291,37 @@ def get_edge_label_index(
             return edge_type, _get_edge_index(edge_type)
 
         return edge_type, edge_label_index
+    
+def get_numa_nodes_cores():
+    """ Returns numa nodes info, format:
+        {<node_id>: [(<core_id>, [<sibling_thread_id_0>, <sibling_thread_id_1>, ...]), ...], ...}
+        E.g.: {0: [(0, [0, 4]), (1, [1, 5])], 1: [(2, [2, 6]), (3, [3, 7])]}
+        If not available, returns {}
+    """
+    numa_node_paths = glob.glob('/sys/devices/system/node/node[0-9]*')
+
+    if not numa_node_paths:
+        return {}
+
+    nodes = {}
+    try:
+        for node_path in numa_node_paths:
+            numa_node_id = int(os.path.basename(node_path)[4:])
+
+            thread_siblings = {}
+            for cpu_dir in glob.glob(os.path.join(node_path, 'cpu[0-9]*')):
+                cpu_id = int(os.path.basename(cpu_dir)[3:])
+
+                with open(os.path.join(cpu_dir, 'topology', 'core_id')) as core_id_file:
+                    core_id = int(core_id_file.read().strip())
+                    if core_id in thread_siblings:
+                        thread_siblings[core_id].append(cpu_id)
+                    else:
+                        thread_siblings[core_id] = [cpu_id]
+
+            nodes[numa_node_id] = sorted([(k, sorted(v)) for k, v in thread_siblings.items()])
+            
+    except (OSError, ValueError, IndexError, IOError):
+        raise Exception('Failed to read NUMA info')
+
+    return nodes
