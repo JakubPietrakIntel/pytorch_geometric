@@ -61,8 +61,6 @@ def run(args: argparse.ArgumentParser) -> None:
                         shuffle=False,
                         num_workers=num_workers,
                         use_cpu_worker_affinity=use_cpu_worker_affinity,
-                        loader_cores=[22,23],
-                        compute_cores=list(range(24,48))
                         #cpu_worker_affinity_cores=cpu_worker_affinity_cores
                     )
                 for layers in args.num_layers:
@@ -101,7 +99,7 @@ def run(args: argparse.ArgumentParser) -> None:
                             metadata=data.metadata() if hetero else None)
                         model = model.to(device)
                         model.eval()
-                        with subgraph_loader.enable_cpu_aff_test():
+                        with subgraph_loader.enable_cpu_affinity(loader_cores=[10,11], compute_cores=list(range(24,48))):
                             with amp:
                                 for _ in range(args.warmup):
                                     print(f"WARMUP TIME")
@@ -147,7 +145,7 @@ if __name__ == '__main__':
     argparser.add_argument('--warmup', default=1, type=int)
     argparser.add_argument('--profile', action='store_true')
     argparser.add_argument('--bf16', action='store_true')
-    argparser.add_argument('--cpu-affinity', default=1, type=int)
+    argparser.add_argument('--cpu-affinity', default=0, type=int)
     #argparser.add_argument('--cpu-affinity-cores', nargs='+', default=[], type=int)
     args = argparser.parse_args()
 
