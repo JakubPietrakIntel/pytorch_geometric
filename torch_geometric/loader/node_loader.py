@@ -1,8 +1,8 @@
-from contextlib import contextmanager
 from typing import Any, Callable, Iterator, List, Optional, Tuple, Union
 
 import torch
 import psutil
+from contextlib import contextmanager
 
 from torch_geometric.data import Data, HeteroData
 from torch_geometric.data.feature_store import FeatureStore
@@ -22,7 +22,6 @@ from torch_geometric.sampler.base import (
     SamplerOutput,
 )
 from torch_geometric.typing import InputNodes
-from contextlib import contextmanager
 
 
 class NodeLoader(torch.utils.data.DataLoader):
@@ -273,6 +272,10 @@ class NodeLoader(torch.utils.data.DataLoader):
             def init_fn(worker_id):
                 try:
                     psutil.Process().cpu_affinity([loader_cores[worker_id]])
+                    # p = psutil.Process()
+                    # p.cpu_affinity([loader_cores[worker_id]])
+                    # print(f"Worker process #{worker_id}: {p}, affinity {p.cpu_affinity()}", flush=True)
+
                 except:
                     raise Exception('ERROR: cannot use affinity id={} cpu={}'
                                     .format(worker_id, loader_cores))
@@ -294,14 +297,21 @@ class NodeLoader(torch.utils.data.DataLoader):
                 compute_cores = [cpu for cpu in node0_cores if cpu not in loader_cores]
 
             try:
-                psutil.Process().cpu_affinity(compute_cores)
-                torch.set_num_threads(len(compute_cores))
+                # for cwork in range(len(compute_cores)):
+                #     torch.set_num_threads(1)
+                #     p = psutil.Process()
+                #     print(f"Compute process #{cwork}: {p}, affinity {p.cpu_affinity()}", flush=True)
+                #     time.sleep(1)
+                #     p.cpu_affinity([cwork])
+                #     print(f"Child #{cwork}: Set my affinity to {cwork}, affinity now {p.cpu_affinity()}", flush=True)
+
+                #psutil.Process().cpu_affinity(compute_cores)
+                #torch.set_num_threads(len(compute_cores))
                 self.worker_init_fn = init_fn
 
                 self.cpu_affinity_enabled = True
-                if verbose:
-                    print('{} DL workers are assigned to cpus {}, main process will use cpus {}'
-                        .format(self.num_workers, loader_cores, compute_cores))
+                print('{} DL workers are assigned to cpus {}, main process will use cpus {}'
+                    .format(self.num_workers, loader_cores, compute_cores))
                 
                 yield
             finally:
@@ -322,6 +332,6 @@ class WorkerInitWrapper(object):
         self.func = func
 
     def __call__(self, worker_id):
-        torch.set_num_threads(1)
+        #torch.set_num_threads(1)
         if self.func is not None:
             self.func(worker_id)
