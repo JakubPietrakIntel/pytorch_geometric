@@ -17,7 +17,7 @@ def run(args: argparse.ArgumentParser) -> None:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # CPU affinity     
-    use_cpu_worker_affinity = (True if args.cpu_affinity == 1 else False)
+    use_cpu_affinity = (True if args.cpu_affinity == 1 else False)
     # if use_cpu_worker_affinity:
     #     cpu_worker_affinity_cores = (args.cpu_affinity_cores if args.cpu_affinity_cores else list(range(args.num_workers[0])))
     # else:
@@ -60,8 +60,6 @@ def run(args: argparse.ArgumentParser) -> None:
                         batch_size=batch_size,
                         shuffle=False,
                         num_workers=num_workers,
-                        use_cpu_worker_affinity=use_cpu_worker_affinity,
-                        #cpu_worker_affinity_cores=cpu_worker_affinity_cores
                     )
                 for layers in args.num_layers:
                     if hetero:
@@ -72,9 +70,7 @@ def run(args: argparse.ArgumentParser) -> None:
                             input_nodes=mask,
                             batch_size=batch_size,
                             shuffle=False,
-                            num_workers=num_workers,
-                            use_cpu_worker_affinity=use_cpu_worker_affinity,
-                            #cpu_worker_affinity_cores=cpu_worker_affinity_cores
+                            num_workers=num_workers
                         )
                     else:
                         num_neighbors = [-1] * layers
@@ -99,23 +95,42 @@ def run(args: argparse.ArgumentParser) -> None:
                             metadata=data.metadata() if hetero else None)
                         model = model.to(device)
                         model.eval()
-                        with subgraph_loader.enable_cpu_affinity(loader_cores=[10,11], compute_cores=list(range(24,48))):
-                            with amp:
-                                for _ in range(args.warmup):
-                                    print(f"WARMUP TIME")
-                                    with timeit(): 
+                        if use_cpu_affinity:
+                            with subgraph_loader.enable_cpu_affinity(loader_cores=args.loader_cores, compute_cores=args.compute_cores):
+                                with amp:
+                                    for _ in range(args.warmup):
+                                        print(f"WARMUP TIME")
+                                        with timeit(): 
+                                            try:
+                                                model.inference(subgraph_loader, device,
+                                                                progress_bar=True)
+                                            except RuntimeError:
+                                                pass
+                                    print("INFERENCE TIME")
+                                    with timeit():
                                         try:
                                             model.inference(subgraph_loader, device,
                                                             progress_bar=True)
                                         except RuntimeError:
                                             pass
-                                print("INFERENCE TIME")
-                                with timeit():
-                                    try:
-                                        model.inference(subgraph_loader, device,
-                                                        progress_bar=True)
-                                    except RuntimeError:
-                                        pass
+                        else:
+                            with amp:
+                                    for _ in range(args.warmup):
+                                        print(f"WARMUP TIME")
+                                        with timeit(): 
+                                            try:
+                                                model.inference(subgraph_loader, device,
+                                                                progress_bar=True)
+                                            except RuntimeError:
+                                                pass
+                                    print("INFERENCE TIME")
+                                    with timeit():
+                                        try:
+                                            model.inference(subgraph_loader, device,
+                                                            progress_bar=True)
+                                        except RuntimeError:
+                                            pass
+                            
 
 
 if __name__ == '__main__':
@@ -145,8 +160,10 @@ if __name__ == '__main__':
     argparser.add_argument('--warmup', default=1, type=int)
     argparser.add_argument('--profile', action='store_true')
     argparser.add_argument('--bf16', action='store_true')
-    argparser.add_argument('--cpu-affinity', default=0, type=int)
-    #argparser.add_argument('--cpu-affinity-cores', nargs='+', default=[], type=int)
+    argparser.add_argument('--cpu-affinity', default=1, type=int)
+    argparser.add_argument('--loader-cores', nargs='+', default=[], type=int)
+    argparser.add_argument('--compute-cores', nargs='+', default=[], type=int)
+
     args = argparser.parse_args()
 
     run(args)

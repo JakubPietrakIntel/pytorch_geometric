@@ -3,6 +3,7 @@ from typing import Any, Callable, Iterator, List, Optional, Tuple, Union
 import torch
 import psutil
 from contextlib import contextmanager
+import os 
 
 from torch_geometric.data import Data, HeteroData
 from torch_geometric.data.feature_store import FeatureStore
@@ -268,7 +269,8 @@ class NodeLoader(torch.utils.data.DataLoader):
 
             compute_cores = compute_cores[:] if compute_cores else []
             loader_cores = loader_cores[:] if loader_cores else []
-
+            all_cores = list(range(psutil.cpu_count(logical = False)))
+            
             def init_fn(worker_id):
                 try:
                     psutil.Process().cpu_affinity([loader_cores[worker_id]])
@@ -283,30 +285,33 @@ class NodeLoader(torch.utils.data.DataLoader):
                 worker_init_fn_old(worker_id)
 
             if not loader_cores or not compute_cores:
-                numa_info = get_numa_nodes_cores()
-                if numa_info and len(numa_info[0]) > self.num_workers:
-                    # take one thread per each node 0 core
-                    node0_cores = [cpus[0] for core_id, cpus in numa_info[0]]
+                # numa_info = get_numa_nodes_cores()
+                # if numa_info and len(numa_info[0]) > self.num_workers:
+                #     # take one thread per each node 0 core
+                #     node0_cores = [cpus[0] for core_id, cpus in numa_info[0]]
+                # else:
+                # if len(node0_cores) <= self.num_workers:
+                #     raise Exception('ERROR: more workers than available cores')
+                
+                
+                loader_cores = loader_cores or all_cores[-self.num_workers:]
+                if torch.get_num_threads() != all_cores:
+                    # manual setting detected
+                    omp_threads = os.getenv("OMP_NUM_THREADS")
+                    gomp_cpu_aff = os.getenv("GOMP_CPU_AFFINITY")
+                    compute_cores = list(range(torch.get_num_threads()))
                 else:
-                    node0_cores = list(range(psutil.cpu_count(logical = False)))
-
-                if len(node0_cores) <= self.num_workers:
-                    raise Exception('ERROR: more workers than available cores')
-
-                loader_cores = loader_cores or node0_cores[-self.num_workers:]
-                compute_cores = [cpu for cpu in node0_cores if cpu not in loader_cores]
+                    compute_cores = [cpu for cpu in all_cores if cpu not in loader_cores]
+                
+            if len(compute_cores)+len(loader_cores) > len(all_cores):
+                raise Exception(f"""Compute: {len(compute_cores)} DataLoader: {len(loader_cores)}
+                                    Total number of threads is greater than the number of CPU cores ({len(all_cores)}).
+                                    This can lead to decreased performance.""")
 
             try:
-                # for cwork in range(len(compute_cores)):
-                #     torch.set_num_threads(1)
-                #     p = psutil.Process()
-                #     print(f"Compute process #{cwork}: {p}, affinity {p.cpu_affinity()}", flush=True)
-                #     time.sleep(1)
-                #     p.cpu_affinity([cwork])
-                #     print(f"Child #{cwork}: Set my affinity to {cwork}, affinity now {p.cpu_affinity()}", flush=True)
-
-                #psutil.Process().cpu_affinity(compute_cores)
-                #torch.set_num_threads(len(compute_cores))
+                # limit amount of threads
+                torch.set_num_threads(len(compute_cores))
+                # set cpu affinity for dataloader
                 self.worker_init_fn = init_fn
 
                 self.cpu_affinity_enabled = True
