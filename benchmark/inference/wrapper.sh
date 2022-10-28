@@ -81,8 +81,9 @@ for ht in ${HYPERTHREADING[@]}; do
                     unset OMP_NUM_THREADS
                     unset OMP_PROC_BIND
                 fi
-                mkdir -p logs
-                log="logs/DLAFF1_${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_CAFF${caff}.log"
+                logdir="logs/dl-affinity"
+                mkdir -p logdir
+                log="${logdir}/${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_CAFF${caff}.log"
                 touch $log
                 echo "----------------------"
                 echo """ OMP Setting: $iter
