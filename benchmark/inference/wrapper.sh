@@ -14,23 +14,18 @@ PYTHON=$(which python)
 declare -a HYPERTHREADING=(1)
 declare -a OMP_PROC_BIND=(0 1)
 #declare -a USE_LOGICAL_CORES=(0)
-#declare -a OMP_SCHEDULE=(0 1)
-
 # CPU Affinitization
 declare -a COMPUTE_AFFINITY=(0 1 2 3 4) #0-none 1-all avaialable 2-ommit first 3 cores 3-single CPU 4-single CPU with ommit
 declare -a DATALOADER_AFFINITY=(1)
-
-
-# loop variables
-declare -a SPARSE_TENSOR=(1)
 declare -a NUM_WORKERS=(1 2 4 8 16)
+
 #declare -a MODELS=('gcn') # 'gat' 'rgcn')
 
 
 
 # inputs for the script
 MODEL='gcn'
-DATASET='Reddit'
+DATASET='ogbn-products'
 BATCH_SIZE="512 1024 2048 4096 8192"
 NUM_HIDDEN_CHANNELS="128"
 NUM_LAYERS="2 3"
@@ -46,9 +41,9 @@ for ht in ${HYPERTHREADING[@]}; do
     else
         echo off > /sys/devices/system/cpu/smt/control
     fi
-    for nw in ${NUM_WORKERS[@]}; do
-        for caff in ${COMPUTE_AFFINITY[@]}; do
-            for ob in ${OMP_PROC_BIND[@]}; do
+    for ob in ${OMP_PROC_BIND[@]}; do
+        for nw in ${NUM_WORKERS[@]}; do
+            for caff in ${COMPUTE_AFFINITY[@]}; do
                 if [ $nw = 0 ] && [ $DL_AFFINITY = 1 ]; then
                     continue
                 fi
@@ -105,9 +100,10 @@ for ht in ${HYPERTHREADING[@]}; do
                 OMP_PROC_BIND: $(echo $OMP_PROC_BIND)
                 """ | tee -a $log
 
-                #$PYTHON -u inference_benchmark.py --models $MODEL --datasets $DATASET --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --warmup $WARMUP --eval-batch-sizes $BATCH_SIZE --cpu-affinity $DL_AFFINITY --use-sparse-tensor $st --num-workers $nw | tee -a $log
+                $PYTHON -u inference_benchmark.py --models $MODEL --datasets $DATASET --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --warmup $WARMUP --use-sparse-tensor $SPARSE_TENSOR --eval-batch-sizes $BATCH_SIZE --cpu-affinity $DL_AFFINITY --num-workers $nw | tee -a $log
                 # --loader-cores $lc --compute-cores $cc
             done
         done  
     done
 done
+echo "BENCHMARK FINISHED"

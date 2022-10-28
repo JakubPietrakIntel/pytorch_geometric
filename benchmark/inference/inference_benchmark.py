@@ -18,10 +18,6 @@ def run(args: argparse.ArgumentParser) -> None:
 
     # CPU affinity     
     use_cpu_affinity = (True if args.cpu_affinity == 1 else False)
-    # if use_cpu_worker_affinity:
-    #     cpu_worker_affinity_cores = (args.cpu_affinity_cores if args.cpu_affinity_cores else list(range(args.num_workers[0])))
-    # else:
-    #     cpu_worker_affinity_cores = None
     # Sparse tensor
     use_sparse_tensor = (True if args.use_sparse_tensor == 1 else False)
     
