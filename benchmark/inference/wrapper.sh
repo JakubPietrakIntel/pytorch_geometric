@@ -82,7 +82,7 @@ for ht in ${HYPERTHREADING[@]}; do
                     unset OMP_PROC_BIND
                 fi
                 mkdir -p logs
-                log="logs/${iter}_${MODEL}_${DATASET}.log"
+                log="logs/DLAFF1_${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_CAFF${caff}.log"
                 touch $log
                 echo "----------------------"
                 echo """ OMP Setting: $iter
