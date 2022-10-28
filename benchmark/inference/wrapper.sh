@@ -81,7 +81,7 @@ for ht in ${HYPERTHREADING[@]}; do
                     unset OMP_NUM_THREADS
                     unset OMP_PROC_BIND
                 fi
-                
+                mkdir -p logs
                 log="logs/${iter}_${MODEL}_${DATASET}.log"
                 touch $log
                 echo "----------------------"
