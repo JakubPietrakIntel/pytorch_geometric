@@ -11,7 +11,7 @@ echo "LOGICAL CORES:" $LOGICAL_CORES
 
 PYTHON=$(which python)
 
-declare -a HYPERTHREADING=(1)
+declare -a HYPERTHREADING=(0 1)
 declare -a OMP_PROC_BIND=(0 1)
 #declare -a USE_LOGICAL_CORES=(0)
 # CPU Affinitization
