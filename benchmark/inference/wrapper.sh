@@ -58,12 +58,13 @@ for ht in ${HYPERTHREADING[@]}; do
                         lower=3
                         upper=$((PHYSICAL_CORES - nw - 1))
                     elif [ $caff = 3 ]; then
-                        # single CPU
+                        # single compute CPU1 - compute & dl running on different CPUs
                         lower=0
                         upper=$(((PHYSICAL_CORES / 2) - 1))
                     elif [ $caff = 4 ]; then
-                        lower=3
-                        upper=$(((PHYSICAL_CORES / 2) - 1))
+                        # single compute CPU2 - compute & dl running on the same CPU
+                        lower=$((PHYSICAL_CORES / 2))
+                        upper=$((PHYSICAL_CORES - nw - 1))
                     fi
 
                     export GOMP_CPU_AFFINITY="$(echo $lower-$upper)"
@@ -82,7 +83,7 @@ for ht in ${HYPERTHREADING[@]}; do
                     unset OMP_PROC_BIND
                 fi
                 logdir="logs/dl-affinity"
-                mkdir -p logdir
+                mkdir -p $logdir
                 log="${logdir}/${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_CAFF${caff}.log"
                 touch $log
                 echo "----------------------"
