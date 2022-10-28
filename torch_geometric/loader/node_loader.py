@@ -295,7 +295,7 @@ class NodeLoader(torch.utils.data.DataLoader):
                 
                 
                 loader_cores = loader_cores or all_cores[-self.num_workers:]
-                if torch.get_num_threads() != all_cores:
+                if torch.get_num_threads() != len(all_cores):
                     # manual setting detected
                     omp_threads = os.getenv("OMP_NUM_THREADS")
                     gomp_cpu_aff = os.getenv("GOMP_CPU_AFFINITY")
@@ -304,9 +304,10 @@ class NodeLoader(torch.utils.data.DataLoader):
                     compute_cores = [cpu for cpu in all_cores if cpu not in loader_cores]
                 
             if len(compute_cores)+len(loader_cores) > len(all_cores):
-                raise Exception(f"""Compute: {len(compute_cores)} DataLoader: {len(loader_cores)}
-                                    Total number of threads is greater than the number of CPU cores ({len(all_cores)}).
-                                    This can lead to decreased performance.""")
+                raise Warning(f"""
+                Compute: {len(compute_cores)} DataLoader: {len(loader_cores)}
+                Total number of threads is greater than the number of CPU cores ({len(all_cores)}).
+                This can lead to decreased performance.""")
 
             try:
                 # limit amount of threads
