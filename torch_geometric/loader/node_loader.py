@@ -297,13 +297,13 @@ class NodeLoader(torch.utils.data.DataLoader):
                 loader_cores = loader_cores or all_cores[-self.num_workers:]
                 if torch.get_num_threads() != len(all_cores):
                     # manual setting detected
-                    omp_threads = os.getenv("OMP_NUM_THREADS")
+                    omp_threads = int(os.getenv("OMP_NUM_THREADS"))
                     gomp_cpu_aff = os.getenv("GOMP_CPU_AFFINITY")
                     gomp_start = int(gomp_cpu_aff.split('-')[0])
                     gomp_end = int(gomp_cpu_aff.split('-')[1])
                      
                     compute_cores = list(range(gomp_start, gomp_end+1))
-                    if len(compute_cores) >= int(omp_threads):
+                    if len(compute_cores) > omp_threads:
                         raise Warning("Oversubscribed threadds. Wrong value of GOMP_CPU_AFFINITY!")
                 else:
                     compute_cores = [cpu for cpu in all_cores if cpu not in loader_cores]

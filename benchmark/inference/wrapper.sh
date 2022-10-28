@@ -14,6 +14,8 @@ PYTHON=$(which python)
 declare -a HYPERTHREADING=(1)
 declare -a OMP_PROC_BIND=(0 1)
 #declare -a USE_LOGICAL_CORES=(0)
+declare -a SPARSE_TENSOR=(0 1)
+
 # CPU Affinitization
 declare -a COMPUTE_AFFINITY=(0 1 2 3 4) #0-none 1-all avaialable 2-ommit first 3 cores 3-single CPU 4-single CPU with ommit
 declare -a DATALOADER_AFFINITY=(1)
@@ -31,7 +33,6 @@ NUM_HIDDEN_CHANNELS="128"
 NUM_LAYERS="2 3"
 HETERO_NEIGHBORS=5
 WARMUP=1
-SPARSE_TENSOR=1
 DL_AFFINITY=1
 iter=0
 
@@ -42,68 +43,70 @@ for ht in ${HYPERTHREADING[@]}; do
         echo off > /sys/devices/system/cpu/smt/control
     fi
     for ob in ${OMP_PROC_BIND[@]}; do
-        for nw in ${NUM_WORKERS[@]}; do
-            for caff in ${COMPUTE_AFFINITY[@]}; do
-                if [ $nw = 0 ] && [ $DL_AFFINITY = 1 ]; then
-                    continue
-                fi
-                iter=$((iter + 1)) # count runs
-                if [ $caff != 0 ]; then
-                    if [ $caff = 1 ]; then
-                        # compute aff on all cores
-                        lower=0
-                        upper=$((PHYSICAL_CORES - nw - 1))
-                    elif [ $caff = 2 ]; then
-                        # compute aff on all excluding first 3
-                        lower=3
-                        upper=$((PHYSICAL_CORES - nw - 1))
-                    elif [ $caff = 3 ]; then
-                        # single CPU
-                        lower=0
-                        upper=$(((PHYSICAL_CORES / 2) - 1))
-                    elif [ $caff = 4 ]; then
-                        lower=3
-                        upper=$(((PHYSICAL_CORES / 2) - 1))
+        for st in ${SPARSE_TENSOR[@]}; do
+            for nw in ${NUM_WORKERS[@]}; do
+                for caff in ${COMPUTE_AFFINITY[@]}; do
+                    if [ $nw = 0 ] && [ $DL_AFFINITY = 1 ]; then
+                        continue
                     fi
+                    iter=$((iter + 1)) # count runs
+                    if [ $caff != 0 ]; then
+                        if [ $caff = 1 ]; then
+                            # compute aff on all cores
+                            lower=0
+                            upper=$((PHYSICAL_CORES - nw - 1))
+                        elif [ $caff = 2 ]; then
+                            # compute aff on all excluding first 3
+                            lower=3
+                            upper=$((PHYSICAL_CORES - nw - 1))
+                        elif [ $caff = 3 ]; then
+                            # single CPU
+                            lower=0
+                            upper=$(((PHYSICAL_CORES / 2) - 1))
+                        elif [ $caff = 4 ]; then
+                            lower=3
+                            upper=$(((PHYSICAL_CORES / 2) - 1))
+                        fi
 
-                    export GOMP_CPU_AFFINITY="$(echo $lower-$upper)"
-                    export OMP_NUM_THREADS=$((upper - lower + 1))
+                        export GOMP_CPU_AFFINITY="$(echo $lower-$upper)"
+                        export OMP_NUM_THREADS=$((upper - lower + 1))
 
-                    if [ $ob = 1 ]; then
-                        export OMP_PROC_BIND=CLOSE
+                        if [ $ob = 1 ]; then
+                            export OMP_PROC_BIND=CLOSE
+                        else
+                            unset OMP_PROC_BIND
+                        fi
+
                     else
+                        # no compute aff
+                        unset GOMP_CPU_AFFINITY
+                        unset OMP_NUM_THREADS
                         unset OMP_PROC_BIND
                     fi
+                    mkdir -p logs
+                    log="logs/${iter}_${MODEL}_${DATASET}.log"
+                    touch $log
+                    echo "----------------------"
+                    echo """ OMP Setting: $iter
+                    LOG: $log
+                    MODEL: $MODEL
+                    DATASET: $DATASET
+                    BATCH_SIZE: $BATCH_SIZE
+                    LAYER_SIZE: $NUM_LAYERS
+                    SPARSE_TENSOR: $st
+                    NUM_WORKERS: $nw
+                    HYPERTHREADING: $(cat /sys/devices/system/cpu/smt/active)
+                    DL AFFINITY: $DL_AFFINITY
+                    OMP_NUM_THREADS: $(echo $OMP_NUM_THREADS)
+                    GOMP_CPU_AFFINITY: $(echo $GOMP_CPU_AFFINITY)
+                    OMP_PROC_BIND: $(echo $OMP_PROC_BIND)
+                    """ | tee -a $log
 
-                else
-                    # no compute aff
-                    unset GOMP_CPU_AFFINITY
-                    unset OMP_NUM_THREADS
-                    unset OMP_PROC_BIND
-                fi
-                mkdir -p logs
-                log="logs/${iter}_${MODEL}_${DATASET}.log"
-                touch $log
-                echo "----------------------"
-                echo """ Iteration: $iter
-                LOG: $log
-                MODEL: $MODEL
-                DATASET: $DATASET
-                SPARSE_TENSOR: $SPARSE_TENSOR
-                BATCH_SIZE: $BATCH_SIZE
-                LAYER_SIZE: $NUM_LAYERS
-                NUM_WORKERS: $nw
-                HYPERTHREADING: $(cat /sys/devices/system/cpu/smt/active)
-                DL AFFINITY: $DL_AFFINITY
-                OMP_NUM_THREADS: $(echo $OMP_NUM_THREADS)
-                GOMP_CPU_AFFINITY: $(echo $GOMP_CPU_AFFINITY)
-                OMP_PROC_BIND: $(echo $OMP_PROC_BIND)
-                """ | tee -a $log
-
-                $PYTHON -u inference_benchmark.py --models $MODEL --datasets $DATASET --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --warmup $WARMUP --use-sparse-tensor $SPARSE_TENSOR --eval-batch-sizes $BATCH_SIZE --cpu-affinity $DL_AFFINITY --num-workers $nw | tee -a $log
-                # --loader-cores $lc --compute-cores $cc
-            done
-        done  
+                    $PYTHON -u inference_benchmark.py --models $MODEL --datasets $DATASET --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --warmup $WARMUP --eval-batch-sizes $BATCH_SIZE --cpu-affinity $DL_AFFINITY --use-sparse-tensor $st --num-workers $nw | tee -a $log
+                    # --loader-cores $lc --compute-cores $cc
+                done
+            done  
+        done
     done
 done
 echo "BENCHMARK FINISHED"
