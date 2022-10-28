@@ -54,7 +54,7 @@ for model in ${MODELS[@]}; do
                     echo "SPARSE_TENSOR:" $st
                     echo "LOG: " $log
                     echo "ARGS: " $args
-                    $PYTHON -u inference_benchmark.py $args | tee $log
+                    #$PYTHON -u inference_benchmark.py $args | tee $log
                 done
             done    
         fi
