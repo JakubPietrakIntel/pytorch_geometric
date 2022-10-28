@@ -299,15 +299,20 @@ class NodeLoader(torch.utils.data.DataLoader):
                     # manual setting detected
                     omp_threads = os.getenv("OMP_NUM_THREADS")
                     gomp_cpu_aff = os.getenv("GOMP_CPU_AFFINITY")
-                    compute_cores = list(range(torch.get_num_threads()))
+                    gomp_start = int(gomp_cpu_aff.split('-')[0])
+                    gomp_end = int(gomp_cpu_aff.split('-')[1])
+                     
+                    compute_cores = list(range(gomp_start, gomp_end+1))
+                    if len(compute_cores) >= int(omp_threads):
+                        raise Warning("Oversubscribed threadds. Wrong value of GOMP_CPU_AFFINITY!")
                 else:
                     compute_cores = [cpu for cpu in all_cores if cpu not in loader_cores]
                 
             if len(compute_cores)+len(loader_cores) > len(all_cores):
                 raise Warning(f"""
-                Compute: {len(compute_cores)} DataLoader: {len(loader_cores)}
-                Total number of threads is greater than the number of CPU cores ({len(all_cores)}).
-                This can lead to decreased performance.""")
+                    Compute: {len(compute_cores)} DataLoader: {len(loader_cores)}
+                    Total number of threads is greater than the number of CPU cores ({len(all_cores)}).
+                    This can lead to decreased performance.""")
 
             try:
                 # limit amount of threads
