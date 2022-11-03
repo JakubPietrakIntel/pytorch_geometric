@@ -27,3 +27,4 @@ coverage.xml
 !test/data/
 
 benchmark/inference/logs/*
+benchmark/inference/plots/*

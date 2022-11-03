@@ -11,8 +11,8 @@ echo "LOGICAL CORES:" $LOGICAL_CORES
 
 PYTHON=$(which python)
 
-declare -a HYPERTHREADING=(0 1)
-declare -a OMP_PROC_BIND=(0 1)
+declare -a HYPERTHREADING=(1)
+declare -a OMP_PROC_BIND=(1)
 #declare -a USE_LOGICAL_CORES=(0)
 # CPU Affinitization
 declare -a COMPUTE_AFFINITY=(0 1 2 3 4) #0-none 1-all avaialable 2-ommit first 3 cores 3-single CPU 4-single CPU with ommit
@@ -33,7 +33,7 @@ HETERO_NEIGHBORS=5
 WARMUP=1
 SPARSE_TENSOR=1
 DL_AFFINITY=1
-iter=0
+iter=75
 
 for ht in ${HYPERTHREADING[@]}; do
     if [ $ht = 1 ]; then
@@ -84,10 +84,10 @@ for ht in ${HYPERTHREADING[@]}; do
                 fi
                 logdir="logs/dl-affinity"
                 mkdir -p $logdir
-                log="${logdir}/${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_CAFF${caff}.log"
+                log="${logdir}/${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_BIND${ob}_CAFF${caff}.log"
                 touch $log
                 echo "----------------------"
-                echo """ OMP Setting: $iter
+                echo """Iteration: $iter
                 LOG: $log
                 MODEL: $MODEL
                 DATASET: $DATASET
