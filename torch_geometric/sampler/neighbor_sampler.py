@@ -224,6 +224,8 @@ class NeighborSampler(BaseSampler):
         # now:
         if self.data_cls == 'custom' or issubclass(self.data_cls, HeteroData):
             if _WITH_PYG_LIB:
+                print(" >>> using pyg-lib hetero nabr sampler <<< ")
+
                 # TODO (matthias) Add `disjoint` option to `NeighborSampler`
                 # TODO (matthias) `return_edge_id` if edge features present
                 disjoint = self.node_time_dict is not None
@@ -276,6 +278,7 @@ class NeighborSampler(BaseSampler):
 
         if issubclass(self.data_cls, Data):
             if _WITH_PYG_LIB:
+                print(" >>> using pyg-lib nabr sampler <<< ")
                 # TODO (matthias) Add `disjoint` option to `NeighborSampler`
                 # TODO (matthias) `return_edge_id` if edge features present
                 disjoint = self.node_time is not None
