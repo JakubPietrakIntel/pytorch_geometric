@@ -99,69 +99,7 @@ class NodeLoader(torch.utils.data.DataLoader):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         super().__init__(input_nodes, collate_fn=self.collate_fn,
             worker_init_fn=worker_init_fn, **kwargs)  
-        # if use_cpu_worker_affinity:
-        #     if not torch.cuda.is_available(): 
-                
-        #         self.num_workers = kwargs.get('num_workers', 0)
-        #         self.loader_cores = loader_cores[:] if loader_cores else []
-        #         self.compute_cores = compute_cores[:] if compute_cores else []
-        #         # TODO: better testing for compute cores
-                
-        #         if not self.num_workers > 0:
-        #             raise Exception('ERROR: affinity should be used with at least one DataLoader worker')
-        #         if self.loader_cores and len(self.loader_cores) != self.num_workers:
-        #             raise Exception('ERROR: cpu_affinity incorrect '
-        #                             'number of loader_cores={} for num_workers={}'
-        #                             .format(self.loader_cores, self.num_workers))
-                
-        #         if not self.loader_cores or not self.compute_cores:
-        #             numa_info = get_numa_nodes_cores()
-        #             if len(numa_info) > 1:
-        #                 # dual-socket machine
-        #                 if numa_info and len(numa_info[0]) > self.num_workers:
-        #                     # take one thread per each node 0 core
-        #                     node0_cores = [core_id[0] for _, core_id in numa_info[0]]
-        #                 if numa_info and len(numa_info[1]) > self.num_workers:
-        #                     node1_cores = [core_id[0] for _, core_id in numa_info[1]]
-        #                 else:
-        #                     cpu_cores = int(psutil.cpu_count(logical = False))
-        #                     node0_cores = list(range(cpu_cores))
-        #                     node1_cores = list(range(cpu_cores, int(2*cpu_cores)))
-        #                     # TODO: test if using logical cores is feasible
-                            
-        #                 if len(node0_cores) <= self.num_workers:
-        #                     raise Exception('ERROR: too many loader_cores')
-        #                 if len(node1_cores) <= len(self.compute_cores):
-        #                     raise Exception('ERROR: too many compute_cores')
-                    
-                    
-        #             else:
-        #                 # single-socket machine
-        #                 raise Exception('CPU affinitization on a single socket system is not advisavble') 
-                
-        #         self.loader_cores = self.loader_cores if self.loader_cores else node0_cores[-self.num_workers:]
-        #         self.compute_cores =  self.compute_cores if self.compute_cores else node1_cores #[cpu for cpu in node0_cores if cpu not in self.loader_cores]
-   
-        #         try:
-        #             # set worker cores affinity
-        #             self.cpu_affinity_enabled = True
-        #             # set compute cores affinity
-        #             psutil.Process().cpu_affinity(self.compute_cores)
-        #             torch.set_num_threads(len(self.compute_cores)) # len(self.compute_cores)
-        #             print(torch.__config__.parallel_info())
-
-
-        #         except:
-        #             raise Exception('ERROR: cannot use compute cores affinity cpu_cores={}'
-        #                             .format(self.compute_cores))
-                    
-        #         print('{} DataLoader workers are assigned to cpus {}, main process will use cpus {}'
-        #                 .format(self.num_workers, self.loader_cores, self.compute_cores))
-        #     else:
-        #         raise Exception("This function can only be used with CPU device")                
-    
-
-    
+        
     def filter_fn(
         self,
         out: Union[SamplerOutput, HeteroSamplerOutput],

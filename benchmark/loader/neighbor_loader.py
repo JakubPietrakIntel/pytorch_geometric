@@ -9,21 +9,22 @@ from ogb.nodeproppred import PygNodePropPredDataset
 import torch_geometric.transforms as T
 from torch_geometric.datasets import OGB_MAG
 from torch_geometric.loader import NeighborLoader
+from torch_geometric.profile import torch_profile
 
 
 def run(args: argparse.ArgumentParser) -> None:
     for dataset_name in args.datasets:
         print(f"Dataset: {dataset_name}")
-        root = osp.join(args.root, dataset_name)
+        #root = osp.join(args.root, f'{dataset_name}')
 
         if dataset_name == 'mag':
             transform = T.ToUndirected(merge=True)
-            dataset = OGB_MAG(root=root, transform=transform)
+            dataset = OGB_MAG(root=args.root, transform=transform)
             train_idx = ('paper', dataset[0]['paper'].train_mask)
             eval_idx = ('paper', None)
             neighbor_sizes = args.hetero_neighbor_sizes
         else:
-            dataset = PygNodePropPredDataset(f'ogbn-{dataset_name}', root)
+            dataset = PygNodePropPredDataset(name=f'ogbn-{dataset_name}', root=args.root)
             split_idx = dataset.get_idx_split()
             train_idx = split_idx['train']
             eval_idx = None
@@ -31,28 +32,28 @@ def run(args: argparse.ArgumentParser) -> None:
 
         data = dataset[0].to(args.device)
 
-        for num_neighbors in neighbor_sizes:
-            print(f'Training sampling with {num_neighbors} neighbors')
-            for batch_size in args.batch_sizes:
-                train_loader = NeighborLoader(
-                    data,
-                    num_neighbors=num_neighbors,
-                    input_nodes=train_idx,
-                    batch_size=batch_size,
-                    shuffle=True,
-                    num_workers=args.num_workers,
-                )
-                runtimes = []
-                num_iterations = 0
-                for run in range(args.runs):
-                    start = default_timer()
-                    for batch in tqdm.tqdm(train_loader):
-                        num_iterations += 1
-                    stop = default_timer()
-                    runtimes.append(round(stop - start, 3))
-                average_time = round(sum(runtimes) / args.runs, 3)
-                print(f'batch size={batch_size}, iterations={num_iterations}, '
-                      f'runtimes={runtimes}, average runtime={average_time}')
+        # for num_neighbors in neighbor_sizes:
+        #     print(f'Training sampling with {num_neighbors} neighbors')
+        #     for batch_size in args.batch_sizes:
+        #         train_loader = NeighborLoader(
+        #             data,
+        #             num_neighbors=num_neighbors,
+        #             input_nodes=train_idx,
+        #             batch_size=batch_size,
+        #             shuffle=True,
+        #             num_workers=args.num_workers,
+        #         )
+        #         runtimes = []
+        #         num_iterations = 0
+        #         for run in range(args.runs):
+        #             start = default_timer()
+        #             for batch in tqdm.tqdm(train_loader):
+        #                 num_iterations += 1
+        #             stop = default_timer()
+        #             runtimes.append(round(stop - start, 3))
+        #         average_time = round(sum(runtimes) / args.runs, 3)
+        #         print(f'batch size={batch_size}, iterations={num_iterations}, '
+        #               f'runtimes={runtimes}, average runtime={average_time}')
 
         print('Evaluation sampling with all neighbors')
         for batch_size in args.eval_batch_sizes:
@@ -66,15 +67,24 @@ def run(args: argparse.ArgumentParser) -> None:
             )
             runtimes = []
             num_iterations = 0
-            for run in range(args.runs):
-                start = default_timer()
-                for batch in tqdm.tqdm(subgraph_loader):
-                    num_iterations += 1
-                stop = default_timer()
-                runtimes.append(round(stop - start, 3))
+            if args.profile:
+                with torch_profile():
+                    for _ in range(args.runs):
+                        start = default_timer()
+                        for batch in tqdm.tqdm(subgraph_loader):
+                            num_iterations += 1
+                        stop = default_timer()
+                        runtimes.append(round(stop - start, 3))
+            else:
+                for _ in range(args.runs):
+                        start = default_timer()
+                        for batch in tqdm.tqdm(subgraph_loader):
+                            num_iterations += 1
+                        stop = default_timer()
+                        runtimes.append(round(stop - start, 3))  
             average_time = round(sum(runtimes) / args.runs, 3)
             print(f'batch size={batch_size}, iterations={num_iterations}, '
-                  f'runtimes={runtimes}, average runtime={average_time}')
+                f'runtimes={runtimes}, average runtime={average_time}')
 
 
 if __name__ == '__main__':
@@ -92,7 +102,8 @@ if __name__ == '__main__':
         type=ast.literal_eval)
     add('--hetero-neighbor_sizes', default=[[5], [10], [10, 5]],
         type=ast.literal_eval)
-    add('--num-workers', default=0)
-    add('--runs', default=3)
+    add('--num-workers', type=int, default=0)
+    add('--runs', type=int, default=3)
+    add('--profile', action='store_true')
 
     run(parser.parse_args())
