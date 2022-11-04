@@ -74,9 +74,9 @@ def run(args: argparse.ArgumentParser) -> None:
                         print('----------------------------------------------')
                         print(f'Batch size={batch_size}, '
                             f'Layers amount={layers}, '
-                            f'Num_neighbors={num_neighbors}, '
+                            f"Num_neighbors={num_neighbors.replace(',', ' ')}, "
                             f'Hidden features size={hidden_channels}, '
-                            f'Sparse tensor={use_sparse_tensor}',
+                            f'Sparse tensor={use_sparse_tensor}, '
                             f'Nr workers={num_workers}')
                         params = {
                             'inputs_channels': inputs_channels,

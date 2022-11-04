@@ -165,7 +165,7 @@ if __name__ == '__main__':
     hyperthreading = ['0','1']
     for ht in hyperthreading:
         baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['H'] == '128')]
-        aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (affinity_data['OMP_PROC_BIND'] == str(None))]
+        aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht)]
         
         data = pd.concat([baseline, aff])
         data = model_mask(data)

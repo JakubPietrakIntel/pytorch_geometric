@@ -96,7 +96,7 @@ for ht in ${HYPERTHREADING[@]}; do
                 LAYER_SIZE: $NUM_LAYERS
                 NUM_WORKERS: $nw
                 HYPERTHREADING: $(cat /sys/devices/system/cpu/smt/active)
-                DL AFFINITY: $DL_AFFINITY
+                DL_AFFINITY: $DL_AFFINITY
                 OMP_NUM_THREADS: $(echo $OMP_NUM_THREADS)
                 GOMP_CPU_AFFINITY: $(echo $GOMP_CPU_AFFINITY)
                 OMP_PROC_BIND: $(echo $OMP_PROC_BIND)
