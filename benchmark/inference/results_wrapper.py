@@ -1,99 +1,145 @@
 import pandas as pd
 import os
+import plotly.subplots as ps
 import plotly.express as px
+import plotly.graph_objects as go
+
 import numpy as np
 from os import listdir
 import re
 
 SUPPORTED_SETS = {
     'rgcn':'ogbn-mag',
-    'gat':'Reddit',
-    'gcn':'Reddit'
+    'gat':'ogbn-products',
+    'gcn':'ogbn=products'
 }
 
-def analyse(platform) -> None:
-    
-    results = []
-    keys = ["MODEL", "DATASET", "HYPERTHREADING", "AFFINITY", "NR_WORKERS", "TIME(s)"]
-    for file in listdir(LOGS):
-        test_result = [None]*len(keys)
-        if ".log" in file:
-            filedir=f"{LOGS}/{file}"
-            model = file.split('_')[0].strip()
-            #config=file.replace('_','')[:-4]
-            config = file.split('_')[1][:-4].strip()
-            test_result[0] = model
-            test_result[1] = SUPPORTED_SETS.get(model, None)
-            test_result[2] = int(re.search('HT(.*)A', config).group(1))
-            test_result[3] = int(re.search('A(.*)', config).group(1))
-            test_result[4] = int(re.search('W(.*)HT', config).group(1))
-            test_result[5] = float(next(reversed(list(open(filedir)))).rstrip('s\n').split(":")[1].lstrip())
-            results.append(test_result)
-            
-    table = pd.DataFrame(results, columns=keys)
-    table.sort_values(by=['MODEL','NR_WORKERS','HYPERTHREADING','AFFINITY'], inplace=True)
-    table.to_csv(SUMMARY, na_rep='FAILED', index_label="TEST_ID", header=True)
+KEYS = ['TEST_ID', 'T_inf', 'T_warm', 'BATCH', 'LAYERS', 'NUM_NBRS', 'H', 'ST', 'NR_WORK'] 
+CONFIG = ['MODEL', 'DATASET', 'HYPERTHREADING', 'COMP_AFFINITY', 'DL_AFFINITY', 'OMP_NUM_THREADS','GOMP_CPU_AFFINITY','OMP_PROC_BIND']    
+def load_logfile(file):
+    data = {k: [] for k in KEYS+CONFIG}
 
-def plot(platform):
+    with open(file, 'r') as f:
+        lines = f.readlines()
+        it = 0
+        end_of_config = False
+        for line in lines:
+            line = line.rstrip('\n')
+            if not end_of_config:
+                for conf in CONFIG:
+                    if conf in line:
+                        val = line.split(':')[1].strip() if line.split(':')[1] != ' ' else None
+                        data[conf].append(val)
+                caff = re.search('CAFF(.*).log', file)
+                data['COMP_AFFINITY'].append(caff.group(1) if caff else 0)
+                
+            if line == 'BENCHMARK STARTS':
+                end_of_config = True
+                
+            elif "----" in line:
+                it += 1
+                data['TEST_ID'].append(it)
+                warmup = False
+            elif 'Batch' in line:
+                results = line.split(',')
+                for i, key in enumerate(KEYS[3:]):
+                    data[key].append(results[i].split('=')[1])
+            elif 'WARMUP' in line:
+                warmup = True
+            elif 'INFERENCE' in line:
+                warmup = False
+            elif 'Time' in line:
+                time = float(line.rstrip('s').split(":")[1].lstrip())
+                data['T_warm'].append(time) if warmup else data['T_inf'].append(time)
+        print('EOF')
+
+        for conf in CONFIG:
+            data[conf] = [data[conf][0]]*len(data['TEST_ID'])        
+        return data
+            
+def load_data(directory):
+    list_of_dicts = []
+    for file in listdir(directory):
+        if ".log" in file:
+            list_of_dicts.append(load_logfile(f'{directory}/{file}'))
+    result_dict = {k:[] for k in list_of_dicts[0].keys()} 
+    for d in list_of_dicts:
+        for k, v in d.items():
+            for i in v:
+                result_dict[k].append(i)            
+    result_dict.pop('TEST_ID')
+    table = pd.DataFrame(result_dict)
+    table['NR_WORK'] = table['NR_WORK'].astype(int)
+    table['OMP_PROC_BIND'] = table['OMP_PROC_BIND'].astype(str)
+    table['COMP_AFFINITY'] = table['COMP_AFFINITY'].astype(int)
+    table['DL_AFFINITY'] = table['DL_AFFINITY'].astype(int)
+    #table.sort_values(by=['MODEL','NR_WORK','DL_AFFINITY'], inplace=True)
+    table.to_csv(f"{directory}/{directory.split('/')[-1]}.csv", na_rep='-', index_label="TEST_ID", header=True)
+    print(f'Finished processing logs in folder {directory}')               
+    return table
+
+def plot_grid(data, ht):
     
-    os.makedirs(PLOTS, exist_ok=True)
-    data = pd.read_csv(SUMMARY)
-    data['setup'] = np.nan 
-    models = ['gcn','gat','rgcn']
-    datasets = ['Reddit', 'Reddit', 'ogbn-mag']
-    configs = {#'init':[3,512,2,16,0],
-                'SPR':[5,512,3,256,0],
-                'ICX':[5,1024,3,128,1]}
-    cfg_items = ["<br>num_neighbors=","batch_size=","num_layers=","hidden_channels=","warmup="]    
     machines = {'SPR':"2xSPR + 256GB RAM",
                 'ICX':"2xICX + 512GB RAM",
                 'CSX':"2xCSX + 256GB RAM"}
     
-    version = platform.split('-')[1]
-    platform = platform.split('-')[0]
+    # plotting 
+    affinity_setups=['Baseline','DL','DL+C1','DL+C2','DL+C3','DL+C4']
+    colors=list(px.colors.qualitative.Plotly)[:len(affinity_setups)]
+    color_dict = {k:v for k,v in zip(affinity_setups,colors)}
+    layers=[2,3]
+    batches=[512,1024,2048,4096,8192]
+    fig = ps.make_subplots(rows=2, cols=5, 
+                           shared_xaxes=True, shared_yaxes=False,
+                           subplot_titles=[f"Layers={l}, Feat size=128, Batch={b}" for l in layers for b in batches])    
+    once = True
+    for r, layer in enumerate(layers):
+        for c, batch in enumerate(batches):
+            for s in list(np.unique(data["setup"])):
+                sample = data.loc[(data['BATCH'] == str(batch)) & (data['LAYERS'] == str(layer)) & (data['setup'] == s)]
+                sample.sort_values(by='NR_WORK', inplace=True)
+                if s == 'DL':
+                    sample = sample.iloc[::2, :]
+                fig.add_trace(
+                    go.Scatter(x=sample["NR_WORK"], y=sample["T_inf"], 
+                               line=dict(color=color_dict.get(s)),
+                               name=s,
+                               showlegend=once
+                               ),
+                    row=r+1, col=c+1)
+            once = False
+
+                    
+    fig.update_layout(height=600, width=1800, title_text="2xICX + 512GB RAM, Model = gcn, Dataset = ogbn_products, Hyperthreading OFF")
+    fig.update_xaxes(type='category', categoryarray=np.unique(data["NR_WORK"]))
+    fig.update_yaxes(dtick=10)
+    # fig.add_annotation(text=
+    #                 """
+    #                 Baseline - no affinitization<br>
+    #                 DL - DataLoader affinitzation (psutils)<br>
+    #                 C1 - $((PHYSICAL_CORES - nw - 1))   
+    #                 """, 
+    #                 align='left',
+    #                 showarrow=False,
+    #                 xref='paper',
+    #                 yref='paper',
+    #                 x=1.1,
+    #                 y=0.8,
+    #                 bordercolor='black',
+    #                 borderwidth=1)            
+    fig.write_image(f"{PLOTS}/HT-{ht}.png")
     
-    cfg_val= configs.get(platform, None)
-    
-    for i, model in enumerate(models):
-        # str formatting
-        title = machines.get(platform, None)
-        title += f"<br>{model}+{datasets[i]}<br>" 
-        cfg = f"num_neighbors={[-1] * cfg_val[2]}, " if model !='rgcn' else f"num_neighbors={[cfg_val[0]] * cfg_val[2]}, "
-        cfg += ''.join([f"{k}{val}, " for k, val in zip(cfg_items[1:], cfg_val[1:])])
-        title += cfg[:-2]
-        # plot data
-        model_data = model_mask(data, model)
-        fig = px.line(model_data, x = "NR_WORKERS", y = "TIME(s)", color = 'setup', 
-                        height = 500, width = 1000,
-                        labels={"Time":"TIME(s)",
-                                "NR_WORKERS":"NR_WORKERS",
-                                "setup":'Hyperthreading, CPU Affinity'},
-                        title = title).update_traces(mode="lines+markers")
-        
-        fig.update_xaxes(type = 'category', categoryarray=np.unique(model_data["NR_WORKERS"]))
-        avg_time_aff = model_data[(model_data['setup'] == 'NO_HT+AFF') | (model_data['setup'] == 'HT+AFF')].mean()
-        avg_time_aff = round(avg_time_aff['TIME(s)'],2)
-        avg_time_noaff = model_data[(model_data['setup'] == 'NO_HT+NO_AFF') | (model_data['setup'] == 'HT+NO_AFF')].iloc[1:].mean()
-        avg_time_noaff = round(avg_time_noaff['TIME(s)'],2)
-        fig.add_annotation(text=f"Avg. time NO_AFF*: {avg_time_noaff}s<br>Avg. time AFF: {avg_time_aff}s<br><br>* excl. nr_workers = 0", 
-                    align='left',
-                    showarrow=False,
-                    xref='paper',
-                    yref='paper',
-                    x=1.25,
-                    y=0.5,
-                    bordercolor='white',
-                    borderwidth=1)
-        fig.write_image(f"{PLOTS}/{platform}-{version}-{model}.png")
          
-def model_mask(data, model):
-    
-    data = data.assign(setup=np.where((data['HYPERTHREADING'] == 0) & (data['AFFINITY'] == 0), 'NO_HT+NO_AFF', data['setup'])) 
-    data = data.assign(setup=np.where((data['HYPERTHREADING'] == 0) & (data['AFFINITY'] == 1), 'NO_HT+AFF', data['setup']))
-    data = data.assign(setup=np.where((data['HYPERTHREADING'] == 1) & (data['AFFINITY'] == 0), 'HT+NO_AFF', data['setup']))
-    data = data.assign(setup=np.where((data['HYPERTHREADING'] == 1) & (data['AFFINITY'] == 1), 'HT+AFF', data['setup']))
-    
-    return data.loc[(data['MODEL']==model)]
+def model_mask(data):
+    data['setup'] = np.nan
+    data = data.assign(setup=np.where((data['COMP_AFFINITY'] == 0) & (data['DL_AFFINITY'] == 0), 'Baseline', data['setup'])) 
+    data = data.assign(setup=np.where((data['COMP_AFFINITY'] == 0) & (data['DL_AFFINITY'] == 1), 'DL', data['setup']))
+    data = data.assign(setup=np.where((data['COMP_AFFINITY'] == 1) & (data['DL_AFFINITY'] == 1), 'DL+C1', data['setup']))
+    data = data.assign(setup=np.where((data['COMP_AFFINITY'] == 2) & (data['DL_AFFINITY'] == 1), 'DL+C2', data['setup']))
+    data = data.assign(setup=np.where((data['COMP_AFFINITY'] == 3) & (data['DL_AFFINITY'] == 1), 'DL+C3', data['setup']))
+    data = data.assign(setup=np.where((data['COMP_AFFINITY'] == 4) & (data['DL_AFFINITY'] == 1), 'DL+C4', data['setup']))
+    return data
     
     
     
@@ -101,10 +147,27 @@ if __name__ == '__main__':
     
     platform = "ICX-fin"
     
-    CWD=f'pytorch_geometric/benchmark/inference/logs/{platform}'
+    os.chdir(os.path.abspath(os.path.dirname(__file__)))
+    CWD = os.getcwd()
+    print("Current working directory: {0}".format(CWD))
+
+    #CWD=f'pytorch_geometric/benchmark/inference/logs/{platform}'
     LOGS=f"{CWD}/logs"
     SUMMARY=f"{CWD}/summary_{platform}.csv"
     PLOTS=f'{CWD}/plots'
+    os.makedirs(PLOTS, exist_ok=True)
+    FILE=f'{LOGS}/dl-affinity/1_gcn_ogbn-products_NW1_HT0_CAFF0.log'
         
-    analyse(platform)
-    plot(platform)
+    #analyse(platform)
+    #plot(platform)
+    baseline_data = load_data(f'{LOGS}/baseline')
+    affinity_data = load_data(f'{LOGS}/dl-affinity')
+    hyperthreading = ['0','1']
+    for ht in hyperthreading:
+        baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['H'] == '128')]
+        aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (affinity_data['OMP_PROC_BIND'] == str(None))]
+        
+        data = pd.concat([baseline, aff])
+        data = model_mask(data)
+        plot_grid(data, ht)
+    print('END')
