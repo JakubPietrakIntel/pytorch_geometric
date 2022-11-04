@@ -79,11 +79,7 @@ def load_data(directory):
     return table
 
 def plot_grid(data, ht):
-    
-    machines = {'SPR':"2xSPR + 256GB RAM",
-                'ICX':"2xICX + 512GB RAM",
-                'CSX':"2xCSX + 256GB RAM"}
-    
+
     # plotting 
     affinity_setups=['Baseline','DL','DL+C1','DL+C2','DL+C3','DL+C4']
     colors=list(px.colors.qualitative.Plotly)[:len(affinity_setups)]
@@ -162,10 +158,11 @@ if __name__ == '__main__':
     #plot(platform)
     baseline_data = load_data(f'{LOGS}/baseline')
     affinity_data = load_data(f'{LOGS}/dl-affinity')
+    proc_bind = 'None' # 'CLOSE'
     hyperthreading = ['0','1']
     for ht in hyperthreading:
         baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['H'] == '128')]
-        aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht)]
+        aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (affinity_data['OMP_PROC_BIND'] == proc_bind)]
         
         data = pd.concat([baseline, aff])
         data = model_mask(data)
