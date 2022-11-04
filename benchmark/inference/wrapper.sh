@@ -70,11 +70,11 @@ for ht in ${HYPERTHREADING[@]}; do
                 export GOMP_CPU_AFFINITY="$(echo $lower-$upper)"
                 export OMP_NUM_THREADS=$((upper - lower + 1))
 
-                if [ $ob = 1 ]; then
-                    export OMP_PROC_BIND=CLOSE
-                else
-                    unset OMP_PROC_BIND
-                fi
+                # if [ $ob = 1 ]; then
+                #     export OMP_PROC_BIND=CLOSE
+                # else
+                #     unset OMP_PROC_BIND
+                # fi
 
             else
                 # no compute aff
