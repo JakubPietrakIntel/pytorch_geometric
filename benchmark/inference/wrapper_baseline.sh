@@ -24,7 +24,7 @@ declare -a MODELS=('gcn') # 'gat' 'rgcn')
 
 # inputs for the script
 BATCH_SIZE="512 1024 2048 4096 8192"
-NUM_HIDDEN_CHANNELS="128"
+NUM_HIDDEN_CHANNELS="12168"
 NUM_LAYERS="2 3"
 HETERO_NEIGHBORS=5
 WARMUP=1
@@ -48,12 +48,21 @@ for model in ${MODELS[@]}; do
                     unset OMP_SCHEDULE
                     unset OMP_PROC_BIND
                     log="${log_dir}/${model}_HT${ht}ST${st}.log"
-                    args="--models ${model} --num-workers ${WORKERS} --num-layers ${NUM_LAYERS} --num-hidden-channels ${NUM_HIDDEN_CHANNELS} --hetero-num-neighbors ${HETERO_NEIGHBORS} --eval-batch-sizes ${BATCH_SIZE} --warmup ${WARMUP} --use-sparse-tensor ${st}"
-                    echo "OMP:" $omp
-                    echo "HYPERTHREADING:" $(cat /sys/devices/system/cpu/smt/active)
-                    echo "SPARSE_TENSOR:" $st
-                    echo "LOG: " $log
-                    echo "ARGS: " $args
+                    echo "----------------------"
+                    echo """Iteration: $iter
+                    LOG: $log
+                    MODEL: $MODEL
+                    DATASET: $DATASET
+                    SPARSE_TENSOR: $SPARSE_TENSOR
+                    BATCH_SIZE: $BATCH_SIZE
+                    LAYER_SIZE: $NUM_LAYERS
+                    NUM_WORKERS: $nw
+                    HYPERTHREADING: $(cat /sys/devices/system/cpu/smt/active)
+                    DL_AFFINITY: $DL_AFFINITY
+                    OMP_NUM_THREADS: $(echo $OMP_NUM_THREADS)
+                    GOMP_CPU_AFFINITY: $(echo $GOMP_CPU_AFFINITY)
+                    OMP_PROC_BIND: $(echo $OMP_PROC_BIND)
+                    """ | tee -a $log
                     #$PYTHON -u inference_benchmark.py $args | tee $log
                 done
             done    

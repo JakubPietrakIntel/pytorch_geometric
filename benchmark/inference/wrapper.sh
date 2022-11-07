@@ -16,8 +16,8 @@ declare -a OMP_PROC_BIND=(1)
 #declare -a USE_LOGICAL_CORES=(0)
 # CPU Affinitization
 declare -a COMPUTE_AFFINITY=(0 1 2 3 4) #0-none 1-all avaialable 2-ommit first 3 cores 3-single CPU 4-single CPU with ommit
-declare -a DATALOADER_AFFINITY=(1)
-declare -a NUM_WORKERS=(1 2 4 8 16)
+declare -a DATALOADER_AFFINITY=(0)
+declare -a NUM_WORKERS=(0 1 2 4 8 16)
 
 #declare -a MODELS=('gcn') # 'gat' 'rgcn')
 
@@ -32,7 +32,7 @@ NUM_LAYERS="2 3"
 HETERO_NEIGHBORS=5
 WARMUP=1
 SPARSE_TENSOR=1
-DL_AFFINITY=1
+DL_AFFINITY=0
 iter=0
 
 for ht in ${HYPERTHREADING[@]}; do
@@ -45,6 +45,9 @@ for ht in ${HYPERTHREADING[@]}; do
     for nw in ${NUM_WORKERS[@]}; do
         for caff in ${COMPUTE_AFFINITY[@]}; do
             if [ $nw = 0 ] && [ $DL_AFFINITY = 1 ]; then
+                continue
+            fi
+            if [ $caff != 0 ] && [ $DL_AFFINITY = 0 ]; then
                 continue
             fi
             iter=$((iter + 1)) # count runs
@@ -70,11 +73,11 @@ for ht in ${HYPERTHREADING[@]}; do
                 export GOMP_CPU_AFFINITY="$(echo $lower-$upper)"
                 export OMP_NUM_THREADS=$((upper - lower + 1))
 
-                if [ $ob = 1 ]; then
-                    export OMP_PROC_BIND=CLOSE
-                else
-                    unset OMP_PROC_BIND
-                fi
+                # if [ $ob = 1 ]; then
+                #     export OMP_PROC_BIND=CLOSE
+                # else
+                #     unset OMP_PROC_BIND
+                # fi
 
             else
                 # no compute aff
@@ -82,7 +85,7 @@ for ht in ${HYPERTHREADING[@]}; do
                 unset OMP_NUM_THREADS
                 unset OMP_PROC_BIND
             fi
-            logdir="logs-feat16/dl-affinity"
+            logdir="logs-feat16/baseline"
             mkdir -p $logdir
             log="${logdir}/${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_CAFF${caff}.log"
             touch $log

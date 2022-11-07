@@ -78,7 +78,7 @@ def load_data(directory):
     print(f'Finished processing logs in folder {directory}')               
     return table
 
-def plot_grid(data, ht):
+def plot_grid(data, ht, feat_size):
 
     # plotting 
     affinity_setups=['Baseline','DL','DL+C1','DL+C2','DL+C3','DL+C4']
@@ -88,15 +88,15 @@ def plot_grid(data, ht):
     batches=[512,1024,2048,4096,8192]
     fig = ps.make_subplots(rows=2, cols=5, 
                            shared_xaxes=True, shared_yaxes=False,
-                           subplot_titles=[f"Layers={l}, Feat size=128, Batch={b}" for l in layers for b in batches])    
+                           subplot_titles=[f"Layers={l}, Feat size={feat_size}, Batch={b}" for l in layers for b in batches])    
     once = True
     for r, layer in enumerate(layers):
         for c, batch in enumerate(batches):
             for s in list(np.unique(data["setup"])):
                 sample = data.loc[(data['BATCH'] == str(batch)) & (data['LAYERS'] == str(layer)) & (data['setup'] == s)]
                 sample.sort_values(by='NR_WORK', inplace=True)
-                if s == 'DL':
-                    sample = sample.iloc[::2, :]
+                # if s == 'DL':
+                #     sample = sample.iloc[::2, :]
                 fig.add_trace(
                     go.Scatter(x=sample["NR_WORK"], y=sample["T_inf"], 
                                line=dict(color=color_dict.get(s)),
@@ -106,8 +106,8 @@ def plot_grid(data, ht):
                     row=r+1, col=c+1)
             once = False
 
-                    
-    fig.update_layout(height=600, width=1800, title_text="2xICX + 512GB RAM, Model = gcn, Dataset = ogbn_products, Hyperthreading OFF")
+    ht_label = 'ON' if ht == 1 else 'OFF'
+    fig.update_layout(height=600, width=1800, title_text=f"2xICX + 512GB RAM, Model = gcn, Dataset = ogbn_products, Hyperthreading {ht_label}")
     fig.update_xaxes(type='category', categoryarray=np.unique(data["NR_WORK"]))
     fig.update_yaxes(dtick=10)
     # fig.add_annotation(text=
@@ -157,14 +157,15 @@ if __name__ == '__main__':
     #analyse(platform)
     #plot(platform)
     baseline_data = load_data(f'{LOGS}/baseline')
-    affinity_data = load_data(f'{LOGS}/dl-affinity')
+    affinity_data = load_data(f'{LOGS}/dl-affinity-feat16')
     proc_bind = 'None' # 'CLOSE'
     hyperthreading = ['0','1']
+    feat_size = 16
     for ht in hyperthreading:
-        baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['H'] == '128')]
+        baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['H'] == str(feat_size))]
         aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (affinity_data['OMP_PROC_BIND'] == proc_bind)]
         
         data = pd.concat([baseline, aff])
         data = model_mask(data)
-        plot_grid(data, ht)
+        plot_grid(data, ht, feat_size)
     print('END')
