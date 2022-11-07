@@ -41,10 +41,10 @@ for ht in ${HYPERTHREADING[@]}; do
     for nw in ${NUM_WORKERS[@]}; do
         for caff in ${COMPUTE_AFFINITY[@]}; do
             for dlaff in ${DATALOADER_AFFINITY[@]}; do
-                if [ $nw = 0 ] && [ $DL_AFFINITY = 1 ]; then
+                if [ $nw = 0 ] && [ $dlaff = 1 ]; then
                     continue
                 fi
-                if [ $caff != 0 ] && [ $DL_AFFINITY = 0 ]; then
+                if [ $caff != 0 ] && [ $dlaff = 0 ]; then
                     continue
                 fi
                 iter=$((iter + 1)) # count runs
@@ -84,7 +84,7 @@ for ht in ${HYPERTHREADING[@]}; do
                 fi
                 logdir="logs"
                 mkdir -p $logdir
-                log="${logdir}/${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_ST${st}_DLAFF${dlaff}_CAFF${caff}.log"
+                log="${logdir}/${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_ST${SPARSE_TENSOR}_DLAFF${dlaff}_CAFF${caff}.log"
                 touch $log
                 echo "----------------------"
                 echo """Iteration: $iter
