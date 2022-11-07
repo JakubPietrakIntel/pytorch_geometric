@@ -19,10 +19,7 @@ declare -a COMPUTE_AFFINITY=(0 1 2 3 4) #0-none 1-all avaialable 2-ommit first 3
 declare -a DATALOADER_AFFINITY=(0 1)
 declare -a NUM_WORKERS=(0 1 2 4 8 16)
 SPARSE_TENSOR=0
-
 #declare -a MODELS=('gcn') # 'gat' 'rgcn')
-
-
 
 # inputs for the script
 MODEL='gcn'
@@ -85,7 +82,7 @@ for ht in ${HYPERTHREADING[@]}; do
                     unset OMP_NUM_THREADS
                     unset OMP_PROC_BIND
                 fi
-                logdir="logs/"
+                logdir="logs"
                 mkdir -p $logdir
                 log="${logdir}/${iter}_${MODEL}_${DATASET}_NW${nw}_HT${ht}_ST${st}_DLAFF${dlaff}_CAFF${caff}.log"
                 touch $log
@@ -106,7 +103,6 @@ for ht in ${HYPERTHREADING[@]}; do
                 """ | tee -a $log
 
                 $PYTHON -u inference_benchmark.py --models $MODEL --datasets $DATASET --num-layers $NUM_LAYERS --num-hidden-channels $NUM_HIDDEN_CHANNELS --hetero-num-neighbors $HETERO_NEIGHBORS --warmup $WARMUP --use-sparse-tensor $SPARSE_TENSOR --eval-batch-sizes $BATCH_SIZE --cpu-affinity $dlaff --num-workers $nw | tee -a $log
-                # --loader-cores $lc --compute-cores $cc
             done
         done  
     done
