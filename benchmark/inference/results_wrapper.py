@@ -94,9 +94,9 @@ def plot_grid(data, ht, feat_size):
         for c, batch in enumerate(batches):
             for s in list(np.unique(data["setup"])):
                 sample = data.loc[(data['BATCH'] == str(batch)) & (data['LAYERS'] == str(layer)) & (data['setup'] == s)]
-                sample.sort_values(by='NR_WORK', inplace=True)
-                # if s == 'DL':
-                #     sample = sample.iloc[::2, :]
+                sample = sample.sort_values(by='NR_WORK')
+                if feat_size == 128 and s == 'DL': #workaround for doubled datapoints
+                    sample = sample.iloc[::2, :]
                 fig.add_trace(
                     go.Scatter(x=sample["NR_WORK"], y=sample["T_inf"], 
                                line=dict(color=color_dict.get(s)),
@@ -106,7 +106,7 @@ def plot_grid(data, ht, feat_size):
                     row=r+1, col=c+1)
             once = False
 
-    ht_label = 'ON' if ht == 1 else 'OFF'
+    ht_label = 'ON' if int(ht) == 1 else 'OFF'
     fig.update_layout(height=600, width=1800, title_text=f"2xICX + 512GB RAM, Model = gcn, Dataset = ogbn_products, Hyperthreading {ht_label}")
     fig.update_xaxes(type='category', categoryarray=np.unique(data["NR_WORK"]))
     fig.update_yaxes(dtick=10)
@@ -124,7 +124,9 @@ def plot_grid(data, ht, feat_size):
     #                 y=0.8,
     #                 bordercolor='black',
     #                 borderwidth=1)            
-    fig.write_image(f"{PLOTS}/HT-{ht}.png")
+    figname=f"{plotdir}/feat{feat_size}HT{ht}.png"
+    print(f"Created {figname}")
+    fig.write_image(figname)
     
          
 def model_mask(data):
@@ -146,21 +148,28 @@ if __name__ == '__main__':
     print("Current working directory: {0}".format(CWD))
 
     #CWD=f'pytorch_geometric/benchmark/inference/logs/{platform}'
-    feat_size = 1281
-    LOGS=f"{CWD}/logs-feat{feat_size}"
-    PLOTS=f'{LOGS}/plots'
-    os.makedirs(PLOTS, exist_ok=True)
-
-    baseline_data = load_data(f'{LOGS}/baseline')
-    affinity_data = load_data(f'{LOGS}/dl-affinity')
-    #proc_bind = 'None' # 'CLOSE'
+    feat_size = [16, 128]
+    sparse_tensor = False
+    oper = 'spmm' if sparse_tensor else 'scatteradd'
     hyperthreading = ['0','1']
     
     for ht in hyperthreading:
-        baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['H'] == str(feat_size))]
-        aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (baseline_data['OMP_PROC_BIND'] == 'None') ]
-        
-        data = pd.concat([baseline, aff])
-        data = model_mask(data)
-        plot_grid(data, ht, feat_size)
+        for fs in feat_size:
+            logdir= f"{CWD}/logs-all/{oper}/logs-feat{fs}" if sparse_tensor else f"{CWD}/logs/{oper}"
+            plotdir=f'{logdir}/plots'
+            os.makedirs(plotdir, exist_ok=True)
+            if sparse_tensor:
+                baseline_data = load_data(f'{logdir}/baseline')
+                affinity_data = load_data(f'{logdir}/dl-affinity')
+                baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['H'] == str(fs))]
+                aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (affinity_data['OMP_PROC_BIND'] == 'None') ]
+                data = pd.concat([baseline, aff])
+                data = model_mask(data)
+                plot_grid(data, ht, fs)
+                
+            else:
+                scatter_data = load_data(f'{CWD}/logs-all/{oper}/logs')
+                scatter_data = scatter_data.loc[(scatter_data['HYPERTHREADING'] == ht) & (scatter_data['H'] == str(fs))]
+                scatter_data = model_mask(scatter_data)
+                plot_grid(scatter_data, ht, fs)
     print('END')
