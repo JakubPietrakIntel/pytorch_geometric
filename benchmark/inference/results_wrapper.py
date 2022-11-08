@@ -140,30 +140,25 @@ def model_mask(data):
     
     
 if __name__ == '__main__':
-    
-    platform = "ICX-fin"
-    
+        
     os.chdir(os.path.abspath(os.path.dirname(__file__)))
     CWD = os.getcwd()
     print("Current working directory: {0}".format(CWD))
 
     #CWD=f'pytorch_geometric/benchmark/inference/logs/{platform}'
-    LOGS=f"{CWD}/logs"
-    SUMMARY=f"{CWD}/summary_{platform}.csv"
-    PLOTS=f'{CWD}/plots'
+    feat_size = 1281
+    LOGS=f"{CWD}/logs-feat{feat_size}"
+    PLOTS=f'{LOGS}/plots'
     os.makedirs(PLOTS, exist_ok=True)
-    FILE=f'{LOGS}/dl-affinity/1_gcn_ogbn-products_NW1_HT0_CAFF0.log'
-        
-    #analyse(platform)
-    #plot(platform)
+
     baseline_data = load_data(f'{LOGS}/baseline')
-    affinity_data = load_data(f'{LOGS}/dl-affinity-feat16')
-    proc_bind = 'None' # 'CLOSE'
+    affinity_data = load_data(f'{LOGS}/dl-affinity')
+    #proc_bind = 'None' # 'CLOSE'
     hyperthreading = ['0','1']
-    feat_size = 16
+    
     for ht in hyperthreading:
         baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['H'] == str(feat_size))]
-        aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (affinity_data['OMP_PROC_BIND'] == proc_bind)]
+        aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (baseline_data['OMP_PROC_BIND'] == 'None') ]
         
         data = pd.concat([baseline, aff])
         data = model_mask(data)
