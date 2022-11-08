@@ -26,5 +26,5 @@ coverage.xml
 !torch_geometric/data/
 !test/data/
 
-benchmark/inference/logs/*
+benchmark/inference/logs*/*
 benchmark/inference/plots/*
