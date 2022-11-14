@@ -4,7 +4,7 @@ import torch
 from utils import get_dataset, get_model
 
 from torch_geometric.loader import NeighborLoader
-from torch_geometric.profile import timeit
+from torch_geometric.profile import timeit, torch_profile
 
 supported_sets = {
     'rgcn':'ogbn-mag',
@@ -93,6 +93,7 @@ def run(args: argparse.ArgumentParser) -> None:
                         model.eval()
                         if use_cpu_affinity:
                             with subgraph_loader.enable_cpu_affinity(loader_cores=args.loader_cores, compute_cores=args.compute_cores):
+                                #with torch_profile():
                                 with amp:
                                     for _ in range(args.warmup):
                                         print(f"WARMUP TIME")
@@ -110,6 +111,7 @@ def run(args: argparse.ArgumentParser) -> None:
                                         except RuntimeError:
                                             pass
                         else:
+                            #with torch_profile():
                             with amp:
                                     for _ in range(args.warmup):
                                         print(f"WARMUP TIME")

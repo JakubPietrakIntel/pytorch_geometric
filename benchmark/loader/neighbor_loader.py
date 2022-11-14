@@ -64,17 +64,19 @@ def run(args: argparse.ArgumentParser) -> None:
                 batch_size=batch_size,
                 shuffle=False,
                 num_workers=args.num_workers,
+                filter_per_worker=args.filter
             )
             runtimes = []
             num_iterations = 0
             if args.profile:
                 with torch_profile():
-                    for _ in range(args.runs):
-                        start = default_timer()
-                        for batch in tqdm.tqdm(subgraph_loader):
-                            num_iterations += 1
-                        stop = default_timer()
-                        runtimes.append(round(stop - start, 3))
+                    with subgraph_loader.enable_cpu_affinity():
+                        for _ in range(args.runs):
+                            start = default_timer()
+                            for batch in tqdm.tqdm(subgraph_loader):
+                                num_iterations += 1
+                            stop = default_timer()
+                            runtimes.append(round(stop - start, 3))
             else:
                 for _ in range(args.runs):
                         start = default_timer()
@@ -105,5 +107,5 @@ if __name__ == '__main__':
     add('--num-workers', type=int, default=0)
     add('--runs', type=int, default=3)
     add('--profile', action='store_true')
-
+    add('--filter', action='store_true')
     run(parser.parse_args())
