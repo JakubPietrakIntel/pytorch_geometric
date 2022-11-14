@@ -14,7 +14,7 @@ SUPPORTED_SETS = {
     'gcn':'ogbn=products'
 }
 
-KEYS = ['TEST_ID', 'T_inf', 'T_warm', 'BATCH', 'LAYERS', 'NUM_NBRS', 'H', 'ST', 'NR_WORK'] 
+KEYS = ['TEST_ID', 'T_inf', 'T_warm', 'BATCH', 'LAYERS', 'NUM_NBRS', 'FEAT', 'ST', 'NR_WORK'] 
 CONFIG = ['MODEL', 'DATASET', 'HYPERTHREADING', 'COMP_AFFINITY', 'DL_AFFINITY', 'OMP_NUM_THREADS','GOMP_CPU_AFFINITY','OMP_PROC_BIND']    
 def load_logfile(file):
     data = {k: [] for k in KEYS+CONFIG}
@@ -78,7 +78,7 @@ def load_data(directory):
     print(f'Finished processing logs in folder {directory}')               
     return table
 
-def plot_grid(data, ht, feat_size):
+def plot_grid(data, ht, feat_size, time):
 
     # plotting 
     affinity_setups=['Baseline','DL','DL+C1','DL+C2','DL+C3','DL+C4']
@@ -95,10 +95,17 @@ def plot_grid(data, ht, feat_size):
             for s in list(np.unique(data["setup"])):
                 sample = data.loc[(data['BATCH'] == str(batch)) & (data['LAYERS'] == str(layer)) & (data['setup'] == s)]
                 sample = sample.sort_values(by='NR_WORK')
+                #print(sample[['T_inf', 'T_warm']].mean()) #TODO: worth checking why sometimes warmup time < inference
                 if feat_size == 128 and s == 'DL': #workaround for doubled datapoints
                     sample = sample.iloc[::2, :]
+                if time == 'warm':
+                    y = sample['T_warm']
+                elif time == 'inf':
+                    y = sample['T_inf']
+                elif time == 'mean':
+                    y = (sample['T_inf'] + sample['T_inf'])/2
                 fig.add_trace(
-                    go.Scatter(x=sample["NR_WORK"], y=sample["T_inf"], 
+                    go.Scatter(x=sample["NR_WORK"], y=y, 
                                line=dict(color=color_dict.get(s)),
                                name=s,
                                showlegend=once
@@ -152,24 +159,25 @@ if __name__ == '__main__':
     sparse_tensor = False
     oper = 'spmm' if sparse_tensor else 'scatteradd'
     hyperthreading = ['0','1']
+    time = "inf"
     
     for ht in hyperthreading:
         for fs in feat_size:
-            logdir= f"{CWD}/logs-all/{oper}/logs-feat{fs}" if sparse_tensor else f"{CWD}/logs/{oper}"
+            logdir= f"{CWD}/logs-all/{oper}/logs-feat{fs}" if sparse_tensor else f"{CWD}/logs-all/{oper}"
             plotdir=f'{logdir}/plots'
             os.makedirs(plotdir, exist_ok=True)
             if sparse_tensor:
                 baseline_data = load_data(f'{logdir}/baseline')
                 affinity_data = load_data(f'{logdir}/dl-affinity')
-                baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['H'] == str(fs))]
+                baseline = baseline_data.loc[(baseline_data['ST'] == 'True') & (baseline_data['HYPERTHREADING'] == ht) & (baseline_data['FEAT'] == str(fs))]
                 aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (affinity_data['OMP_PROC_BIND'] == 'None') ]
                 data = pd.concat([baseline, aff])
                 data = model_mask(data)
-                plot_grid(data, ht, fs)
+                plot_grid(data, ht, fs, time)
                 
             else:
                 scatter_data = load_data(f'{CWD}/logs-all/{oper}/logs')
-                scatter_data = scatter_data.loc[(scatter_data['HYPERTHREADING'] == ht) & (scatter_data['H'] == str(fs))]
+                scatter_data = scatter_data.loc[(scatter_data['HYPERTHREADING'] == ht) & (scatter_data['FEAT'] == str(fs))]
                 scatter_data = model_mask(scatter_data)
-                plot_grid(scatter_data, ht, fs)
+                plot_grid(scatter_data, ht, fs, time)
     print('END')
