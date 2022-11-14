@@ -1,8 +1,7 @@
 import argparse
 import torch
 #print(torch.__config__.parallel_info())
-from utils import get_dataset, get_model
-
+from benchmark.utils import emit_itt, get_dataset, get_model
 from torch_geometric.loader import NeighborLoader
 from torch_geometric.profile import timeit, torch_profile
 
@@ -157,6 +156,7 @@ if __name__ == '__main__':
     argparser.add_argument('--num-workers', nargs='+', default=[2], type=int)
     argparser.add_argument('--warmup', default=1, type=int)
     argparser.add_argument('--profile', action='store_true')
+    argparser.add_argument('--vtune-profile', action='store_true')
     argparser.add_argument('--bf16', action='store_true')
     argparser.add_argument('--cpu-affinity', default=1, type=int)
     argparser.add_argument('--loader-cores', nargs='+', default=[], type=int)

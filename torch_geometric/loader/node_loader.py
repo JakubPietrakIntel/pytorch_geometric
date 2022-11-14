@@ -10,6 +10,7 @@ from torch_geometric.data.feature_store import FeatureStore
 from torch_geometric.data.graph_store import GraphStore
 from torch_geometric.loader.base import DataLoaderIterator
 from torch_geometric.loader.utils import (
+    InputData,
     filter_custom_store,
     filter_data,
     filter_hetero_data,
@@ -22,7 +23,7 @@ from torch_geometric.sampler.base import (
     NodeSamplerInput,
     SamplerOutput,
 )
-from torch_geometric.typing import InputNodes
+from torch_geometric.typing import InputNodes, OptTensor
 
 
 class NodeLoader(torch.utils.data.DataLoader):
@@ -47,6 +48,11 @@ class NodeLoader(torch.utils.data.DataLoader):
             If set to :obj:`None`, all nodes will be considered.
             In heterogeneous graphs, needs to be passed as a tuple that holds
             the node type and node indices. (default: :obj:`None`)
+        input_time (torch.Tensor, optional): Optional values to override the
+            timestamp for the input nodes given in :obj:`input_nodes`. If not
+            set, will use the timestamps in :obj:`time_attr` as default (if
+            present). The :obj:`time_attr` needs to be set for this to work.
+            (default: :obj:`None`)
         transform (Callable, optional): A function/transform that takes in
             a sampled mini-batch and returns a transformed version.
             (default: :obj:`None`)
@@ -67,6 +73,7 @@ class NodeLoader(torch.utils.data.DataLoader):
         data: Union[Data, HeteroData, Tuple[FeatureStore, GraphStore]],
         node_sampler: BaseSampler,
         input_nodes: InputNodes = None,
+        input_time: OptTensor = None,
         transform: Callable = None,
         filter_per_worker: bool = False,
         use_cpu_worker_affinity=False,
@@ -79,13 +86,14 @@ class NodeLoader(torch.utils.data.DataLoader):
             del kwargs['dataset']
         if 'collate_fn' in kwargs:
             del kwargs['collate_fn']
-        self.data = data
-        # NOTE sampler is an attribute of 'DataLoader', so we use node_sampler
-        # here:
-        self.node_sampler = node_sampler
 
-        # Store additional arguments:
-        self.input_nodes = input_nodes
+        # Get node type (or `None` for homogeneous graphs):
+        node_type, input_nodes = get_input_nodes(data, input_nodes)
+
+        self.data = data
+        self.node_type = node_type
+        self.node_sampler = node_sampler
+        self.input_data = InputData(input_nodes, input_time)
         self.transform = transform
         self.filter_per_worker = filter_per_worker
         self.num_workers = kwargs.get('num_workers', 0)
@@ -97,21 +105,34 @@ class NodeLoader(torch.utils.data.DataLoader):
         # CPU Affinitization for loader and compute cores
         worker_init_fn = WorkerInitWrapper(kwargs.get('worker_init_fn', None))
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        super().__init__(input_nodes, collate_fn=self.collate_fn,
-            worker_init_fn=worker_init_fn, **kwargs)  
-        
+        iterator = range(input_nodes.size(0))
+        super().__init__(iterator, collate_fn=self.collate_fn, worker_init_fn=worker_init_fn, **kwargs)
+
+    def collate_fn(self, index: NodeSamplerInput) -> Any:
+        r"""Samples a subgraph from a batch of input nodes."""
+        input_data: NodeSamplerInput = self.input_data[index]
+
+        out = self.node_sampler.sample_from_nodes(input_data)
+
+        if self.filter_per_worker:  # Execute `filter_fn` in the worker process
+            out = self.filter_fn(out)
+
+        return out
+
     def filter_fn(
         self,
         out: Union[SamplerOutput, HeteroSamplerOutput],
     ) -> Union[Data, HeteroData]:
         r"""Joins the sampled nodes with their corresponding features,
-        returning the resulting (Data or HeteroData) object to be used
-        downstream."""
+        returning the resulting :class:`~torch_geometric.data.Data` or
+        :class:`~torch_geometric.data.HeteroData` object to be used downstream.
+        """
         if isinstance(out, SamplerOutput):
             data = filter_data(self.data, out.node, out.row, out.col, out.edge,
                                self.node_sampler.edge_permutation)
             data.batch = out.batch
-            data.batch_size = out.metadata
+            data.input_id = out.metadata
+            data.batch_size = out.metadata.size(0)
 
         elif isinstance(out, HeteroSamplerOutput):
             if isinstance(self.data, HeteroData):
@@ -124,7 +145,8 @@ class NodeLoader(torch.utils.data.DataLoader):
 
             for key, batch in (out.batch or {}).items():
                 data[key].batch = batch
-            data[self.input_type].batch_size = out.metadata
+            data[self.node_type].input_id = out.metadata
+            data[self.node_type].batch_size = out.metadata.size(0)
 
         else:
             raise TypeError(f"'{self.__class__.__name__}'' found invalid "
@@ -132,16 +154,16 @@ class NodeLoader(torch.utils.data.DataLoader):
 
         return data if self.transform is None else self.transform(data)
 
-    def collate_fn(self, index: NodeSamplerInput) -> Any:
-        r"""Samples a subgraph from a batch of input nodes."""
-        if isinstance(index, (list, tuple)):
-            index = torch.tensor(index)
+    # def collate_fn(self, index: NodeSamplerInput) -> Any:
+    #     r"""Samples a subgraph from a batch of input nodes."""
+    #     if isinstance(index, (list, tuple)):
+    #         index = torch.tensor(index)
 
-        out = self.node_sampler.sample_from_nodes(index)
-        if self.filter_per_worker:
-            # We execute `filter_fn` in the worker process.
-            out = self.filter_fn(out)
-        return out
+    #     out = self.node_sampler.sample_from_nodes(index)
+    #     if self.filter_per_worker:
+    #         # We execute `filter_fn` in the worker process.
+    #         out = self.filter_fn(out)
+    #     return out
 
     def worker_init_function(self, worker_id):
         """Worker init default function.
@@ -163,7 +185,8 @@ class NodeLoader(torch.utils.data.DataLoader):
     def _get_iterator(self) -> Iterator:
         if self.filter_per_worker:
             return super()._get_iterator()
-        # We execute `filter_fn` in the main process.
+
+        # Execute `filter_fn` in the main process:
         return DataLoaderIterator(super()._get_iterator(), self.filter_fn)
 
     def __repr__(self) -> str:

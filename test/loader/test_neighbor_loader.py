@@ -10,7 +10,7 @@ from torch_sparse import SparseTensor
 from torch_geometric.data import Data, HeteroData
 from torch_geometric.loader import NeighborLoader
 from torch_geometric.nn import GraphConv, to_hetero
-from torch_geometric.testing import withPackage
+from torch_geometric.testing import onlyUnix, withPackage
 from torch_geometric.testing.feature_store import MyFeatureStore
 from torch_geometric.testing.graph_store import MyGraphStore
 from torch_geometric.utils import k_hop_subgraph
@@ -48,10 +48,9 @@ def test_homogeneous_neighbor_loader(directed):
 
     for batch in loader:
         assert isinstance(batch, Data)
-
-        assert len(batch) == 4
+        assert len(batch) == 5
         assert batch.x.size(0) <= 100
-        assert batch.batch_size == 20
+        assert batch.input_id.numel() == batch.batch_size == 20
         assert batch.x.min() >= 0 and batch.x.max() < 100
         assert batch.edge_index.min() >= 0
         assert batch.edge_index.max() < batch.num_nodes
@@ -118,8 +117,9 @@ def test_heterogeneous_neighbor_loader(directed):
         # Test node type selection:
         assert set(batch.node_types) == {'paper', 'author'}
 
-        assert len(batch['paper']) == 2
+        assert len(batch['paper']) == 3
         assert batch['paper'].x.size(0) <= 100
+        assert batch['paper'].input_id.numel() == batch_size
         assert batch['paper'].batch_size == batch_size
         assert batch['paper'].x.min() >= 0 and batch['paper'].x.max() < 100
 
@@ -368,7 +368,8 @@ def test_custom_neighbor_loader(FeatureStore, GraphStore):
     assert len(loader1) == len(loader2)
 
     for batch1, batch2 in zip(loader1, loader2):
-        assert len(batch1) == len(batch2)
+        # loader2 excplicitly adds `num_nodes` to the batch
+        assert len(batch1) + 1 == len(batch2)
         assert batch1['paper'].batch_size == batch2['paper'].batch_size
 
         # Mapped indices of neighbors may be differently sorted:
@@ -498,7 +499,7 @@ def test_pyg_lib_heterogeneous_neighbor_loader():
         'author__to__paper': [-1, -1],
     }
 
-    sample = torch.ops.pyg.hetero_neighbor_sample_cpu
+    sample = torch.ops.pyg.hetero_neighbor_sample
     out1 = sample(node_types, edge_types, colptr_dict, row_dict, seed_dict,
                   num_neighbors_dict, None, None, True, False, True, False,
                   "uniform", True)
@@ -522,8 +523,9 @@ def test_pyg_lib_heterogeneous_neighbor_loader():
         assert torch.equal(edge_id1_dict[key], edge_id2_dict[key])
 
 
+@onlyUnix
 def test_memmap_neighbor_loader():
-    path = os.path.join(os.sep, 'tmp', f'{random.randrange(sys.maxsize)}.npy')
+    path = os.path.join('/', 'tmp', f'{random.randrange(sys.maxsize)}.npy')
     x = np.memmap(path, dtype=np.float32, mode='w+', shape=(100, 32))
     x[:] = np.random.randn(100, 32)
 
