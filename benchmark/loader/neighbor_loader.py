@@ -73,8 +73,8 @@ def run(args: argparse.ArgumentParser) -> None:
             runtimes = []
             num_iterations = 0
             
-            with torch_profile() if args.profile else nullcontext() as gs:
-                with subgraph_loader.enable_cpu_affinity() if args.affinity else nullcontext() as gs:
+            with torch_profile() if args.profile else nullcontext(): #as gs
+                with subgraph_loader.enable_cpu_affinity() if args.affinity else nullcontext():
                     for _ in range(args.runs):
                         start = default_timer()
                         for batch in tqdm.tqdm(subgraph_loader):
@@ -92,7 +92,7 @@ if __name__ == '__main__':
 
     add = parser.add_argument
     add('--device', default='cpu')
-    add('--datasets', nargs="+", default=['arxiv', 'products', 'mag'])
+    add('--datasets', nargs="+", default=['products']) #['arxiv', 'products', 'mag']
     add('--root', default='../../data')
     add('--batch-sizes', default=[8192, 4096, 2048, 1024, 512],
         type=ast.literal_eval)
@@ -103,11 +103,11 @@ if __name__ == '__main__':
     add('--hetero-neighbor_sizes', default=[[5], [10], [10, 5]],
         type=ast.literal_eval)
     add(
-        '--use-sparse-tensor',default=0, type=int,
+        '--use-sparse-tensor', action='store_true',
         help='use torch_sparse.SparseTensor as graph storage format')
     add('--num-workers', type=int, default=0)
     add('--runs', type=int, default=3)
-    add('--profile', action='store_true')
-    add('--filter', action='store_true')
-    add('--affinity', action='store_true')
+    add('--profile', default=False, action='store_true')
+    add('--filter', default=False, action='store_true')
+    add('--affinity', default=False, action='store_true')
     run(parser.parse_args())

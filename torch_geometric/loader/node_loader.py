@@ -258,10 +258,11 @@ class NodeLoader(torch.utils.data.DataLoader):
                 loader_cores = loader_cores or all_cores[-self.num_workers:]
                 if torch.get_num_threads() != len(all_cores):
                     # manual setting detected
-                    omp_threads = int(os.getenv("OMP_NUM_THREADS"))
+                    omp_threads = os.getenv("OMP_NUM_THREADS")
                     gomp_cpu_aff = os.getenv("GOMP_CPU_AFFINITY")
-                    gomp_start = int(gomp_cpu_aff.split('-')[0])
-                    gomp_end = int(gomp_cpu_aff.split('-')[1])
+                    omp_threads = int(omp_threads) if omp_threads else None
+                    gomp_start = int(gomp_cpu_aff.split('-')[0]) if gomp_cpu_aff else None
+                    gomp_end = int(gomp_cpu_aff.split('-')[1]) if gomp_cpu_aff else None
                      
                     compute_cores = list(range(gomp_start, gomp_end+1))
                     if len(compute_cores) > omp_threads:
