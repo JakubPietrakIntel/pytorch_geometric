@@ -87,7 +87,7 @@ def plot_grid(data, ht, feat_size, time):
     layers=[2,3]
     batches=[512,1024,2048,4096,8192]
     fig = ps.make_subplots(rows=2, cols=5, 
-                           shared_xaxes=True, shared_yaxes=False,
+                           shared_xaxes=False, shared_yaxes=False,
                            subplot_titles=[f"Layers={l}, Feat size={feat_size}, Batch={b}" for l in layers for b in batches])    
     once = True
     for r, layer in enumerate(layers):
@@ -108,29 +108,31 @@ def plot_grid(data, ht, feat_size, time):
                     go.Scatter(x=sample["NR_WORK"], y=y, 
                                line=dict(color=color_dict.get(s)),
                                name=s,
-                               showlegend=once
+                               showlegend=once,
                                ),
                     row=r+1, col=c+1)
             once = False
 
     ht_label = 'ON' if int(ht) == 1 else 'OFF'
-    fig.update_layout(height=600, width=1800, title_text=f"2xICX + 512GB RAM, Model = gcn, Dataset = ogbn_products, Hyperthreading {ht_label}")
+    fig.update_layout(height=600, width=1800, 
+                      title_text=f"2xICX + 512GB RAM, Model = gcn, Dataset = ogbn_products, Hyperthreading {ht_label}")
     fig.update_xaxes(type='category', categoryarray=np.unique(data["NR_WORK"]))
     fig.update_yaxes(dtick=10)
-    # fig.add_annotation(text=
-    #                 """
-    #                 Baseline - no affinitization<br>
-    #                 DL - DataLoader affinitzation (psutils)<br>
-    #                 C1 - $((PHYSICAL_CORES - nw - 1))   
-    #                 """, 
-    #                 align='left',
-    #                 showarrow=False,
-    #                 xref='paper',
-    #                 yref='paper',
-    #                 x=1.1,
-    #                 y=0.8,
-    #                 bordercolor='black',
-    #                 borderwidth=1)            
+    fig.add_annotation(
+                    text=
+                    """
+                    x-axis - number of DL Workers
+                    y-axis - Inference time (s) 
+                    """, 
+                    align='left',
+                    showarrow=False,
+                    xref='paper',
+                    yref='paper',
+                    x=0.5,
+                    y=-0.15,
+                    bordercolor='black',
+                    font=dict(size=14),
+                    borderwidth=1)            
     figname=f"{plotdir}/feat{feat_size}HT{ht}.png"
     print(f"Created {figname}")
     fig.write_image(figname)
