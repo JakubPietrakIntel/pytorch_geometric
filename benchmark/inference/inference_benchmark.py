@@ -1,7 +1,7 @@
 import argparse
 import torch
-#print(torch.__config__.parallel_info())
-from benchmark.utils import emit_itt, get_dataset, get_model
+print(torch.__config__.parallel_info())
+from benchmark.utils import get_dataset, get_model
 from torch_geometric.loader import NeighborLoader
 from torch_geometric.profile import timeit, torch_profile
 

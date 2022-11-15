@@ -78,7 +78,7 @@ def load_data(directory):
     print(f'Finished processing logs in folder {directory}')               
     return table
 
-def plot_grid(data, ht, feat_size, time):
+def plot_grid(data, ht, feat_size, time, sparse_tensor):
 
     # plotting 
     affinity_setups=['Baseline','DL','DL+C1','DL+C2','DL+C3','DL+C4']
@@ -115,14 +115,14 @@ def plot_grid(data, ht, feat_size, time):
 
     ht_label = 'ON' if int(ht) == 1 else 'OFF'
     fig.update_layout(height=600, width=1800, 
-                      title_text=f"2xICX + 512GB RAM, Model = gcn, Dataset = ogbn_products, Hyperthreading {ht_label}")
+                      title_text=f"2xICX + 512GB RAM, Model = gcn, dataset = ogbn_products, sparse_tensor={sparse_tensor}, Hyperthreading {ht_label}")
     fig.update_xaxes(type='category', categoryarray=np.unique(data["NR_WORK"]))
     fig.update_yaxes(dtick=10)
     fig.add_annotation(
                     text=
-                    """
+                    f"""
                     x-axis - number of DL Workers
-                    y-axis - Inference time (s) 
+                    y-axis - {time} time (s) 
                     """, 
                     align='left',
                     showarrow=False,
@@ -158,10 +158,10 @@ if __name__ == '__main__':
 
     #CWD=f'pytorch_geometric/benchmark/inference/logs/{platform}'
     feat_size = [16, 128]
-    sparse_tensor = False
+    sparse_tensor = True
     oper = 'spmm' if sparse_tensor else 'scatteradd'
     hyperthreading = ['0','1']
-    time = "inf"
+    measured_time = "mean"
     
     for ht in hyperthreading:
         for fs in feat_size:
@@ -175,11 +175,11 @@ if __name__ == '__main__':
                 aff = affinity_data.loc[(affinity_data['HYPERTHREADING'] == ht) & (affinity_data['OMP_PROC_BIND'] == 'None') ]
                 data = pd.concat([baseline, aff])
                 data = model_mask(data)
-                plot_grid(data, ht, fs, time)
+                plot_grid(data, ht, fs, measured_time, sparse_tensor)
                 
             else:
                 scatter_data = load_data(f'{CWD}/logs-all/{oper}/logs')
                 scatter_data = scatter_data.loc[(scatter_data['HYPERTHREADING'] == ht) & (scatter_data['FEAT'] == str(fs))]
                 scatter_data = model_mask(scatter_data)
-                plot_grid(scatter_data, ht, fs, time)
+                plot_grid(scatter_data, ht, fs, measured_time, sparse_tensor)
     print('END')

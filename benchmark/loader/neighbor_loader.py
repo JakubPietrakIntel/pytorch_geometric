@@ -10,6 +10,7 @@ import torch_geometric.transforms as T
 from torch_geometric.datasets import OGB_MAG
 from torch_geometric.loader import NeighborLoader
 from torch_geometric.profile import torch_profile
+from contextlib import nullcontext
 
 
 def run(args: argparse.ArgumentParser) -> None:
@@ -24,7 +25,9 @@ def run(args: argparse.ArgumentParser) -> None:
             eval_idx = ('paper', None)
             neighbor_sizes = args.hetero_neighbor_sizes
         else:
-            dataset = PygNodePropPredDataset(name=f'ogbn-{dataset_name}', root=args.root)
+            transform = T.ToSparseTensor(
+            remove_edge_index=False) if args.use_sparse_tensor else None
+            dataset = PygNodePropPredDataset(name=f'ogbn-{dataset_name}', root=args.root, transform=transform)
             split_idx = dataset.get_idx_split()
             train_idx = split_idx['train']
             eval_idx = None
@@ -56,6 +59,7 @@ def run(args: argparse.ArgumentParser) -> None:
         #               f'runtimes={runtimes}, average runtime={average_time}')
 
         print('Evaluation sampling with all neighbors')
+        average_times = []
         for batch_size in args.eval_batch_sizes:
             subgraph_loader = NeighborLoader(
                 data,
@@ -68,26 +72,20 @@ def run(args: argparse.ArgumentParser) -> None:
             )
             runtimes = []
             num_iterations = 0
-            if args.profile:
-                with torch_profile():
-                    with subgraph_loader.enable_cpu_affinity():
-                        for _ in range(args.runs):
-                            start = default_timer()
-                            for batch in tqdm.tqdm(subgraph_loader):
-                                num_iterations += 1
-                            stop = default_timer()
-                            runtimes.append(round(stop - start, 3))
-            else:
-                for _ in range(args.runs):
+            
+            with torch_profile() if args.profile else nullcontext() as gs:
+                with subgraph_loader.enable_cpu_affinity() if args.affinity else nullcontext() as gs:
+                    for _ in range(args.runs):
                         start = default_timer()
                         for batch in tqdm.tqdm(subgraph_loader):
                             num_iterations += 1
                         stop = default_timer()
-                        runtimes.append(round(stop - start, 3))  
+                        runtimes.append(round(stop - start, 3))
             average_time = round(sum(runtimes) / args.runs, 3)
+            average_times.append(average_time)
             print(f'batch size={batch_size}, iterations={num_iterations}, '
                 f'runtimes={runtimes}, average runtime={average_time}')
-
+        print(average_times)    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('NeighborLoader Sampling Benchmarking')
@@ -104,8 +102,12 @@ if __name__ == '__main__':
         type=ast.literal_eval)
     add('--hetero-neighbor_sizes', default=[[5], [10], [10, 5]],
         type=ast.literal_eval)
+    add(
+        '--use-sparse-tensor',default=0, type=int,
+        help='use torch_sparse.SparseTensor as graph storage format')
     add('--num-workers', type=int, default=0)
     add('--runs', type=int, default=3)
     add('--profile', action='store_true')
     add('--filter', action='store_true')
+    add('--affinity', action='store_true')
     run(parser.parse_args())
