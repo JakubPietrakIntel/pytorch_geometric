@@ -29,3 +29,4 @@ coverage.xml
 
 benchmark/inference/logs*/*
 benchmark/inference/plots/*
+*/timeline.json
