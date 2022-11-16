@@ -96,7 +96,7 @@ def plot_grid(data, ht, feat_size, time, sparse_tensor):
                 sample = data.loc[(data['BATCH'] == str(batch)) & (data['LAYERS'] == str(layer)) & (data['setup'] == s)]
                 sample = sample.sort_values(by='NR_WORK')
                 #print(sample[['T_inf', 'T_warm']].mean()) #TODO: worth checking why sometimes warmup time < inference
-                if feat_size == 128 and s == 'DL': #workaround for doubled datapoints
+                if feat_size == 128 and s == 'DL' and sparse_tensor == False: #workaround for doubled datapoints
                     sample = sample.iloc[::2, :]
                 if time == 'warm':
                     y = sample['T_warm']
@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
     #CWD=f'pytorch_geometric/benchmark/inference/logs/{platform}'
     feat_size = [16, 128]
-    sparse_tensor = True
+    sparse_tensor = False
     oper = 'spmm' if sparse_tensor else 'scatteradd'
     hyperthreading = ['0','1']
     measured_time = "mean"

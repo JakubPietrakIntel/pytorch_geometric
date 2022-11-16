@@ -154,24 +154,13 @@ class NodeLoader(torch.utils.data.DataLoader):
 
         return data if self.transform is None else self.transform(data)
 
-    # def collate_fn(self, index: NodeSamplerInput) -> Any:
-    #     r"""Samples a subgraph from a batch of input nodes."""
-    #     if isinstance(index, (list, tuple)):
-    #         index = torch.tensor(index)
-
-    #     out = self.node_sampler.sample_from_nodes(index)
-    #     if self.filter_per_worker:
-    #         # We execute `filter_fn` in the worker process.
-    #         out = self.filter_fn(out)
-    #     return out
-
     def worker_init_function(self, worker_id):
         """Worker init default function.
                 Parameters
                 ----------
                 worker_id : int
-                    Worker ID.
-                self.loader_cores : [int] (optional)
+                    Worker ID.self.loader_cores : [int] (optio
+                nal)
                     List of cpu cores to which dataloader workers should affinitize to.
                     default: node0_cores[0:num_workers]
         """
@@ -298,13 +287,13 @@ class NodeLoader(torch.utils.data.DataLoader):
             yield
             
 class WorkerInitWrapper(object):
-    """Wraps the :attr:`worker_init_fn` argument of the DataLoader to set the number of DGL
+    """Wraps the :attr:`worker_init_fn` argument of the DataLoader to set the number of
     OMP threads to 1 for PyTorch DataLoader workers.
     """
     def __init__(self, func):
         self.func = func
 
     def __call__(self, worker_id):
-        #torch.set_num_threads(1)
+        torch.set_num_threads(1)
         if self.func is not None:
             self.func(worker_id)
