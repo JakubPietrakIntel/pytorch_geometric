@@ -4,6 +4,7 @@ print(torch.__config__.parallel_info())
 from benchmark.utils import get_dataset, get_model
 from torch_geometric.loader import NeighborLoader
 from torch_geometric.profile import timeit, torch_profile
+from contextlib import nullcontext
 
 supported_sets = {
     'rgcn':'ogbn-mag',
@@ -90,45 +91,25 @@ def run(args: argparse.ArgumentParser) -> None:
                             metadata=data.metadata() if hetero else None)
                         model = model.to(device)
                         model.eval()
-                        if use_cpu_affinity:
-                            with subgraph_loader.enable_cpu_affinity(loader_cores=args.loader_cores, compute_cores=args.compute_cores):
-                                #with torch_profile():
-                                with amp:
-                                    for _ in range(args.warmup):
-                                        print(f"WARMUP TIME")
-                                        with timeit(): 
-                                            try:
-                                                model.inference(subgraph_loader, device,
-                                                                progress_bar=True)
-                                            except RuntimeError:
-                                                pass
-                                    print("INFERENCE TIME")
-                                    with timeit():
-                                        try:
-                                            model.inference(subgraph_loader, device,
-                                                            progress_bar=True)
-                                        except RuntimeError:
-                                            pass
-                        else:
+                        with subgraph_loader.enable_cpu_affinity(loader_cores=args.loader_cores, compute_cores=args.compute_cores) if args.cpu_affinity else nullcontext():
                             #with torch_profile():
                             with amp:
-                                    for _ in range(args.warmup):
-                                        print(f"WARMUP TIME")
-                                        with timeit(): 
-                                            try:
-                                                model.inference(subgraph_loader, device,
-                                                                progress_bar=True)
-                                            except RuntimeError:
-                                                pass
-                                    print("INFERENCE TIME")
-                                    with timeit():
+                                for _ in range(args.warmup):
+                                    print(f"WARMUP TIME")
+                                    with timeit(): 
                                         try:
                                             model.inference(subgraph_loader, device,
                                                             progress_bar=True)
                                         except RuntimeError:
                                             pass
-                            
-
+                                print("INFERENCE TIME")
+                                with timeit():
+                                    try:
+                                        model.inference(subgraph_loader, device,
+                                                        progress_bar=True)
+                                    except RuntimeError:
+                                        pass
+                     
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser('GNN inference benchmark')
