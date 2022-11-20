@@ -1,9 +1,8 @@
-from typing import Any, Callable, Iterator, List, Optional, Tuple, Union
-
-import torch
-import psutil
 from contextlib import contextmanager
-import os 
+from typing import Any, Callable, Iterator, List, Tuple, Union
+
+import psutil
+import torch
 
 from torch_geometric.data import Data, HeteroData
 from torch_geometric.data.feature_store import FeatureStore
@@ -15,7 +14,7 @@ from torch_geometric.loader.utils import (
     filter_data,
     filter_hetero_data,
     get_input_nodes,
-    get_numa_nodes_cores
+    get_numa_nodes_cores,
 )
 from torch_geometric.sampler.base import (
     BaseSampler,
@@ -76,9 +75,6 @@ class NodeLoader(torch.utils.data.DataLoader):
         input_time: OptTensor = None,
         transform: Callable = None,
         filter_per_worker: bool = False,
-        use_cpu_worker_affinity=False,
-        loader_cores=None,
-        compute_cores=None,
         **kwargs,
     ):
         # Remove for PyTorch Lightning:
@@ -96,17 +92,15 @@ class NodeLoader(torch.utils.data.DataLoader):
         self.input_data = InputData(input_nodes, input_time)
         self.transform = transform
         self.filter_per_worker = filter_per_worker
-        self.num_workers = kwargs.get('num_workers', 0)
-
-        # Get input type, or None for homogeneous graphs:
-        node_type, input_nodes = get_input_nodes(self.data, input_nodes)
-        self.input_type = node_type
-        
         # CPU Affinitization for loader and compute cores
+        self.num_workers = kwargs.get('num_workers', 0)
+        self.device = torch.device(
+            'cuda' if torch.cuda.is_available() else 'cpu')
         worker_init_fn = WorkerInitWrapper(kwargs.get('worker_init_fn', None))
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
         iterator = range(input_nodes.size(0))
-        super().__init__(iterator, collate_fn=self.collate_fn, worker_init_fn=worker_init_fn, **kwargs)
+        super().__init__(iterator, collate_fn=self.collate_fn,
+                         worker_init_fn=worker_init_fn, **kwargs)
 
     def collate_fn(self, index: NodeSamplerInput) -> Any:
         r"""Samples a subgraph from a batch of input nodes."""
@@ -154,127 +148,105 @@ class NodeLoader(torch.utils.data.DataLoader):
 
         return data if self.transform is None else self.transform(data)
 
-    def worker_init_function(self, worker_id):
-        """Worker init default function.
-                Parameters
-                ----------
-                worker_id : int
-                    Worker ID.self.loader_cores : [int] (optio
-                nal)
-                    List of cpu cores to which dataloader workers should affinitize to.
-                    default: node0_cores[0:num_workers]
-        """
-        try:
-            psutil.Process().cpu_affinity([self.loader_cores[worker_id]])
-            len(psutil.Process().cpu_affinity())
-        except:
-            raise Exception('ERROR: cannot use affinity id={} cpu_cores={}'
-                            .format(worker_id, self.loader_cores))
-    
     def _get_iterator(self) -> Iterator:
         if self.filter_per_worker:
             return super()._get_iterator()
 
+        # if self.device.type == 'cpu' and not self.cpu_affinity_enabled:
+        # TODO: Add manual page for best CPU practices for PyG and switch on warning message
+        # link = ...
+        # Warning(f'Dataloader CPU affinity opt is not enabled, consider switching it on '
+        #             f'(see enable_cpu_affinity() or CPU best practices for PyG [{link}])')
         # Execute `filter_fn` in the main process:
         return DataLoaderIterator(super()._get_iterator(), self.filter_fn)
 
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}()'
-    
+    def worker_init_function(self, worker_id: int):
+        """ Worker init function using DL affinitization.
+        Args:
+            worker_id (int): DataLoader worked ID
+        Raises:
+            Exception: The number of cores and workers should match.
+        """
+        try:
+            psutil.Process().cpu_affinity([self.loader_cores[worker_id]])
+        except:
+            raise Exception(
+                'ERROR: cannot use affinity for worker id={} cpu_cores={}'.
+                format(worker_id, self.loader_cores))
+
     def __enter__(self):
         return self
-    
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}()'
+
     @contextmanager
-    def enable_cpu_affinity(self, loader_cores=None, compute_cores=None, verbose=True):
+    def enable_cpu_affinity(self, loader_cores: List[int] = None):
         """ Helper method for enabling cpu affinity for compute threads and dataloader workers
         Only for CPU devices
-        Uses only NUMA node 0 by default for multi-node systems
-        Parameters
-        ----------
-        loader_cores : [int] (optional)
-            List of cpu cores to which dataloader workers should affinitize to.
-            default: node0_cores[0:num_workers]
-        compute_cores : [int] (optional)
-            List of cpu cores to which compute threads should affinitize to
-            default: node0_cores[num_workers:]
-        verbose : bool (optional)
-            If True, affinity information will be printed to the console
-        Usage
-        -----
-        with dataloader.enable_cpu_affinity():
-            <training loop>
-        """
-        if self.device.type == 'cpu': 
-            if not self.num_workers > 0:
-                raise Exception('ERROR: affinity should be used with at least one DL worker')
-            if loader_cores and len(loader_cores) != self.num_workers:
-                raise Exception('ERROR: cpu_affinity incorrect '
-                                'number of loader_cores={} for num_workers={}'
-                                .format(loader_cores, self.num_workers))
+        Uses NUMA node 0 by default for multi-node systems
 
-            # False positive E0203 (access-member-before-definition) linter warning
-            worker_init_fn_old = self.worker_init_fn # pylint: disable=E0203
+        Args:
+            loader_cores : [int] (optional)
+                List of cpu cores to which dataloader workers should affinitize to.
+                By default cpu0 is reserved for all auxiliary threads & ops.
+                DataLoader wil affinitize to cores starting at cpu1.
+                default: node0_cores[1:num_workers]
+        Usage:
+        with dataloader.enable_cpu_affinity(losfrt):
+        <training loop>
+        """
+        if self.device.type == 'cpu':
+            if not self.num_workers > 0:
+                raise Exception(
+                    'ERROR: affinity should be used with at least one DL worker'
+                )
+            if loader_cores and len(loader_cores) != self.num_workers:
+                raise Exception(
+                    'ERROR: cpu_affinity incorrect '
+                    'number of loader_cores={} for num_workers={}'.format(
+                        loader_cores, self.num_workers))
+
+            worker_init_fn_old = self.worker_init_fn
             affinity_old = psutil.Process().cpu_affinity()
             nthreads_old = torch.get_num_threads()
-
-            compute_cores = compute_cores[:] if compute_cores else []
             loader_cores = loader_cores[:] if loader_cores else []
-            all_cores = list(range(psutil.cpu_count(logical = False)))
-            
+
             def init_fn(worker_id):
                 try:
                     psutil.Process().cpu_affinity([loader_cores[worker_id]])
-                    # p = psutil.Process()
-                    # p.cpu_affinity([loader_cores[worker_id]])
-                    # print(f"Worker process #{worker_id}: {p}, affinity {p.cpu_affinity()}", flush=True)
-
                 except:
-                    raise Exception('ERROR: cannot use affinity id={} cpu={}'
-                                    .format(worker_id, loader_cores))
+                    raise Exception(
+                        'ERROR: cannot use affinity id={} cpu={}'.format(
+                            worker_id, loader_cores))
 
                 worker_init_fn_old(worker_id)
 
-            if not loader_cores or not compute_cores:
-                # numa_info = get_numa_nodes_cores()
-                # if numa_info and len(numa_info[0]) > self.num_workers:
-                #     # take one thread per each node 0 core
-                #     node0_cores = [cpus[0] for core_id, cpus in numa_info[0]]
-                # else:
-                # if len(node0_cores) <= self.num_workers:
-                #     raise Exception('ERROR: more workers than available cores')
-                
-                
-                loader_cores = loader_cores or all_cores[-self.num_workers:]
-                if torch.get_num_threads() != len(all_cores):
-                    # manual setting detected
-                    omp_threads = os.getenv("OMP_NUM_THREADS")
-                    gomp_cpu_aff = os.getenv("GOMP_CPU_AFFINITY")
-                    omp_threads = int(omp_threads) if omp_threads else None
-                    gomp_start = int(gomp_cpu_aff.split('-')[0]) if gomp_cpu_aff else None
-                    gomp_end = int(gomp_cpu_aff.split('-')[1]) if gomp_cpu_aff else None
-                     
-                    compute_cores = list(range(gomp_start, gomp_end+1))
-                    if len(compute_cores) > omp_threads:
-                        raise Warning("Oversubscribed threadds. Wrong value of GOMP_CPU_AFFINITY!")
+            if not loader_cores:
+
+                numa_info = get_numa_nodes_cores()
+                if numa_info and len(numa_info[0]) > self.num_workers:
+                    # take one thread per each node 0 core
+                    node0_cores = [cpus[0] for core_id, cpus in numa_info[0]]
                 else:
-                    compute_cores = [cpu for cpu in all_cores if cpu not in loader_cores]
-                
-            if len(compute_cores)+len(loader_cores) > len(all_cores):
-                raise Warning(f"""
-                    Compute: {len(compute_cores)} DataLoader: {len(loader_cores)}
-                    Total number of threads is greater than the number of CPU cores ({len(all_cores)}).
-                    This can lead to decreased performance.""")
+                    node0_cores = list(range(psutil.cpu_count(logical=False)))
+
+                if len(node0_cores) - 1 <= self.num_workers:
+                    raise Exception('ERROR: more workers than available cores')
+
+                # set default loader core ids
+                loader_cores = loader_cores or node0_cores[1:self.num_workers +
+                                                           1]
 
             try:
-                # limit amount of threads
-                torch.set_num_threads(len(compute_cores))
                 # set cpu affinity for dataloader
                 self.worker_init_fn = init_fn
 
                 self.cpu_affinity_enabled = True
-                print('{} DL workers are assigned to cpus {}, main process will use cpus {}'
-                    .format(self.num_workers, loader_cores, compute_cores))
-                
+                print(
+                    f"{self.num_workers} DataLoader workers are assigned to CPUs {loader_cores}"
+                )
+
                 yield
             finally:
                 # restore omp_num_threads and cpu affinity
@@ -285,7 +257,8 @@ class NodeLoader(torch.utils.data.DataLoader):
                 self.cpu_affinity_enabled = False
         else:
             yield
-            
+
+
 class WorkerInitWrapper(object):
     """Wraps the :attr:`worker_init_fn` argument of the DataLoader to set the number of
     OMP threads to 1 for PyTorch DataLoader workers.
