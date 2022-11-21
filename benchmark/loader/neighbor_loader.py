@@ -13,14 +13,14 @@ from torch_geometric.datasets import OGB_MAG
 from torch_geometric.loader import NeighborLoader
 from torch_geometric.profile import torch_profile
 
-
 def run(args: argparse.ArgumentParser) -> None:
     for dataset_name in args.datasets:
         print(f"Dataset: {dataset_name}")
         root = osp.join(args.root, dataset_name)
-
+        transform = T.ToSparseTensor(
+        remove_edge_index=False) if args.use_sparse_tensor else None
         if dataset_name == 'mag':
-            transform = T.ToUndirected(merge=True)
+            transform = T.ToUndirected(merge=True) if transform is None else T.Compose([T.ToUndirected(merge=True), transform])
             dataset = OGB_MAG(root=root, transform=transform)
             train_idx = ('paper', dataset[0]['paper'].train_mask)
             eval_idx = ('paper', None)
@@ -33,6 +33,7 @@ def run(args: argparse.ArgumentParser) -> None:
             neighbor_sizes = args.homo_neighbor_sizes
 
         data = dataset[0].to(args.device)
+        average_times=[]
         if neighbor_sizes:
             for num_neighbors in neighbor_sizes:
                 print(f'Training sampling with {num_neighbors} neighbors')
@@ -61,6 +62,7 @@ def run(args: argparse.ArgumentParser) -> None:
                             average_time = round(sum(runtimes) / args.runs, 3)
                             print(f'batch size={batch_size}, iterations={num_iterations}, '
                                 f'runtimes={runtimes}, average runtime={average_time}')
+                            average_times.append(average_time)
 
         if args.eval_batch_sizes:
             print('Evaluation sampling with all neighbors')
@@ -89,7 +91,8 @@ def run(args: argparse.ArgumentParser) -> None:
                         average_time = round(sum(runtimes) / args.runs, 3)
                         print(f'batch size={batch_size}, iterations={num_iterations}, '
                             f'runtimes={runtimes}, average runtime={average_time}')
-
+                        average_times.append(average_time)
+        print(f"Total time averages: {average_times}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('NeighborLoader Sampling Benchmarking')
