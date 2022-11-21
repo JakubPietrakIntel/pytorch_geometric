@@ -51,7 +51,7 @@ def run(args: argparse.ArgumentParser) -> None:
                     with torch_profile() if args.profile else nullcontext():
                         with subgraph_loader.enable_cpu_affinity(
                         loader_cores=args.loader_cores
-                        ) if args.cpu_affinity else nullcontext():
+                        ) if args.affinity else nullcontext():
                             for run in range(args.runs):
                                 start = default_timer()
                                 for batch in tqdm.tqdm(train_loader):
@@ -79,7 +79,7 @@ def run(args: argparse.ArgumentParser) -> None:
                 with torch_profile() if args.profile else nullcontext():
                     with subgraph_loader.enable_cpu_affinity(
                         loader_cores=args.loader_cores
-                        ) if args.cpu_affinity else nullcontext():
+                        ) if args.affinity else nullcontext():
                         for run in range(args.runs):
                             start = default_timer()
                             for batch in tqdm.tqdm(subgraph_loader):
