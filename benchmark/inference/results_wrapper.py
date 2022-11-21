@@ -96,8 +96,9 @@ def plot_grid(data, ht, feat_size, time, sparse_tensor):
                 sample = data.loc[(data['BATCH'] == str(batch)) & (data['LAYERS'] == str(layer)) & (data['setup'] == s)]
                 sample = sample.sort_values(by='NR_WORK')
                 #print(sample[['T_inf', 'T_warm']].mean()) #TODO: worth checking why sometimes warmup time < inference
-                if feat_size == 128 and s == 'DL' and sparse_tensor == False: #workaround for doubled datapoints
-                    sample = sample.iloc[::2, :]
+                if feat_size == 128 and s == 'DL' and sparse_tensor == True: #workaround for doubled datapoints
+                    ...
+                    #sample = sample.iloc[::2, :]
                 if time == 'warm':
                     y = sample['T_warm']
                 elif time == 'inf':
@@ -158,14 +159,14 @@ if __name__ == '__main__':
 
     #CWD=f'pytorch_geometric/benchmark/inference/logs/{platform}'
     feat_size = [16, 128]
-    sparse_tensor = False
+    sparse_tensor = True
     oper = 'spmm' if sparse_tensor else 'scatteradd'
-    hyperthreading = ['0','1']
+    hyperthreading = ['1']
     measured_time = "mean"
     
     for ht in hyperthreading:
         for fs in feat_size:
-            logdir= f"{CWD}/logs-all/{oper}/logs-feat{fs}" if sparse_tensor else f"{CWD}/logs-all/{oper}"
+            logdir= f"{CWD}/logs/{oper}/logs-feat{fs}" if sparse_tensor else f"{CWD}/logs/{oper}"
             plotdir=f'{logdir}/plots'
             os.makedirs(plotdir, exist_ok=True)
             if sparse_tensor:
@@ -178,7 +179,7 @@ if __name__ == '__main__':
                 plot_grid(data, ht, fs, measured_time, sparse_tensor)
                 
             else:
-                scatter_data = load_data(f'{CWD}/logs-all/{oper}/logs')
+                scatter_data = load_data(f'{CWD}/logs/{oper}/logs')
                 scatter_data = scatter_data.loc[(scatter_data['HYPERTHREADING'] == ht) & (scatter_data['FEAT'] == str(fs))]
                 scatter_data = model_mask(scatter_data)
                 plot_grid(scatter_data, ht, fs, measured_time, sparse_tensor)
