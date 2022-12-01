@@ -2,7 +2,7 @@ from typing import Union
 
 import torch
 from torch import Tensor
-from torch_sparse import SparseTensor, matmul
+from torch_sparse import SparseTensor
 
 from .sparse import is_torch_sparse_tensor
 
@@ -37,18 +37,21 @@ def spmm(
 
     :rtype: :class:`Tensor`
     """
-    assert reduce in ['sum', 'add', 'mean', 'min', 'max']
-
+    assert reduce in ['sum', 'add', 'mean', 'min', 'max'], f"Uknown reduction type {reduce}. Supported: ['sum','mean','max','min']"
+    reduce = 'sum' if reduce == 'add' else reduce
+    
     if isinstance(src, SparseTensor):
-        return matmul(src, other, reduce)
+        src = src.to_torch_sparse_csr_tensor(dtype=other.dtype)
+        
+    # if not is_torch_sparse_tensor(src):
+    #         raise ValueError("`src` must be a `torch.sparse.Tensor`"
+    #         f"or a  (got {type(src)}).")
+    
+    # TODO: Revise type chcks when torch.sparse.Tensor is available
+    
+    if not src.layout == torch.sparse_csr:
+        raise ValueError(f"src must be a `torch.Tensor` with `torch.sparse_csr` layout {src.layout}")
+    return torch.sparse.spmm_reduce(src, other, reduce)
 
-    if not is_torch_sparse_tensor(src):
-        raise ValueError("`src` must be a `torch_sparse.SparseTensor` "
-                         f"or a `torch.sparse.Tensor` (got {type(src)}).")
-
-    if reduce in ['sum', 'add']:
-        return torch.sparse.mm(src, other)
-
-    # TODO: Support `mean` reduction for PyTorch SparseTensor
-    raise ValueError(f"`{reduce}` reduction is not supported for "
-                     f"`torch.sparse.Tensor`.")
+    
+SparseTensor.spmm = lambda self, other, reduce="sum": spmm(self, other, reduce)
