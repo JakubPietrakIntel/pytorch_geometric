@@ -6,18 +6,13 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Linear
 from torch_scatter import scatter
-from torch_sparse import (
-    SparseTensor,
-    fill_diag,
-    index_select,
-    matmul,
-    remove_diag,
-)
+from torch_sparse import SparseTensor, fill_diag, index_select, remove_diag
 from torch_sparse import t as transpose
 
 from torch_geometric.nn import LEConv
 from torch_geometric.nn.pool.topk_pool import topk
 from torch_geometric.utils import add_remaining_self_loops, softmax
+from torch_geometric.utils.matmul import matmul
 
 
 class ASAPooling(torch.nn.Module):

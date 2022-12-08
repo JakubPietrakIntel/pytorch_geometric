@@ -1,12 +1,13 @@
 import torch
 from torch import Tensor
-from torch_sparse import SparseTensor, matmul
+from torch_sparse import SparseTensor
 
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.nn.conv.gcn_conv import gcn_norm
 from torch_geometric.nn.dense.linear import Linear
 from torch_geometric.nn.inits import zeros
 from torch_geometric.typing import Adj, OptTensor
+from torch_geometric.utils.matmul import matmul
 
 
 class TAGConv(MessagePassing):
