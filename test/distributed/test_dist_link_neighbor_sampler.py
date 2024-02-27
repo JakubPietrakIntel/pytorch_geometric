@@ -1,5 +1,6 @@
 import atexit
 import socket
+from contextlib import closing
 from typing import Optional
 from contextlib import closing
 
