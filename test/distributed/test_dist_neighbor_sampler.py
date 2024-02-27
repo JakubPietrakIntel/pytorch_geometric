@@ -392,7 +392,6 @@ def dist_neighbor_sampler_temporal_hetero(
 def test_dist_neighbor_sampler(disjoint):
     mp_context = torch.multiprocessing.get_context('spawn')
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
 
@@ -419,7 +418,6 @@ def test_dist_neighbor_sampler(disjoint):
 def test_dist_neighbor_sampler_temporal(seed_time, temporal_strategy):
     mp_context = torch.multiprocessing.get_context('spawn')
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
 
@@ -451,7 +449,6 @@ def test_dist_neighbor_sampler_edge_level_temporal(
 
     mp_context = torch.multiprocessing.get_context('spawn')
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
 
@@ -477,7 +474,6 @@ def test_dist_neighbor_sampler_edge_level_temporal(
 def test_dist_neighbor_sampler_hetero(tmp_path, disjoint):
     mp_context = torch.multiprocessing.get_context('spawn')
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
 
@@ -523,7 +519,6 @@ def test_dist_neighbor_sampler_temporal_hetero(
 
     mp_context = torch.multiprocessing.get_context('spawn')
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
 
@@ -575,7 +570,6 @@ def test_dist_neighbor_sampler_edge_level_temporal_hetero(
 
     mp_context = torch.multiprocessing.get_context('spawn')
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.
         s.bind(('127.0.0.1', 0))
         port = s.getsockname()[1]
 
